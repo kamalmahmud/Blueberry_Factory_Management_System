@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Comprehensive Blueberry Management System</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  h1, h2, h3, h4 { margin-bottom: 10px; }
+  form, table, .section { margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 8px; }
+  th { background: #eee; }
+  input, select, button { margin: 5px 0; padding: 5px; }
+  .low-stock { background-color: #ffcccc; }
+  .reorder-alert { background-color: #fff3cd; }
+</style>
+</head>
+<body>
+
+<h1>Comprehensive Blueberry Management System</h1>
+
+<!-- 1. Supplier Management Module -->
+<div class="section">
+  <h2>1.1 Farmers' Information</h2>
+  <form id="farmer-form">
+    <input type="hidden" name="id">
+    <input type="text" name="name" placeholder="Farmer Name" required>
+    <input type="text" name="contact" placeholder="Contact Details" required>
+    <input type="text" name="location" placeholder="Location" required>
+    <button type="submit">Add/Update Farmer</button>
+  </form>
+
+  <input type="text" id="farmer-search" placeholder="Search by name or location...">
+
+  <table id="farmers-table">
+    <thead>
+      <tr>
+        <th>Farmer ID</th>
+        <th>Name</th>
+        <th>Contact</th>
+        <th>Location</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  
+  <button id="export-farmers">Export Farmers (CSV)</button>
+</div>
+
+<div class="section">
+  <h2>1.2 Purchase Records</h2>
+  <form id="purchase-form">
+    <select name="farmerId" required></select>
+    <select name="inventoryItemId" required></select>
+    <input type="date" name="date" required>
+    <input type="number" step="0.01" name="quantity" placeholder="Quantity (kg)" required>
+    <input type="number" step="0.01" name="pricePerKg" placeholder="Price per Kg" required>
+    <button type="submit">Add Purchase</button>
+  </form>
+
+  <div>
+    Sort by:
+    <button class="sort-purchase" data-sort="date">Date</button>
+    <button class="sort-purchase" data-sort="farmer">Farmer</button>
+    <button class="sort-purchase" data-sort="amount">Amount</button>
+  </div>
+
+  <table id="purchases-table">
+    <thead>
+      <tr>
+        <th>Purchase ID</th>
+        <th>Farmer</th>
+        <th>Inventory Item</th>
+        <th>Date</th>
+        <th>Quantity (kg)</th>
+        <th>Price/kg</th>
+        <th>Total Cost</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>1.3 Expense Calculation</h2>
+  <form id="expense-form">
+    <input type="date" name="start" required>
+    <input type="date" name="end" required>
+    <button type="submit">Calculate Expenses</button>
+  </form>
+  <div>
+    <strong>Total Expenses for Selected Period: </strong><span id="total-expenses">0.00</span>
+  </div>
+</div>
+
+<!-- 2. Product Categorization and Pricing -->
+<div class="section">
+  <h2>2.1 Product Categories & Pricing</h2>
+  <table id="categories-table">
+    <thead>
+      <tr>
+        <th>Category ID</th>
+        <th>Name</th>
+        <th>Weight</th>
+        <th>Price per Unit</th>
+        <th>--</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <form id="category-price-form">
+    <select name="categoryId" required></select>
+    <input type="number" step="0.01" name="newPrice" placeholder="New Price" required>
+    <button type="submit">Update Price</button>
+  </form>
+</div>
+
+<div class="section">
+  <h2>2.2 Inventory Tracking (By Package Category)</h2>
+  <table id="inventory-table">
+    <thead>
+      <tr>
+        <th>Category Name</th>
+        <th>Current Stock (units)</th>
+        <th>Reorder Threshold</th>
+        <th>--</th>
+        <th>--</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <form id="reorder-form">
+    <select name="categoryId" required></select>
+    <input type="number" name="newThreshold" placeholder="New Reorder Threshold" min="0" required>
+    <button type="submit">Update Threshold</button>
+  </form>
+
+  <form id="stock-form">
+    <select name="categoryId" required></select>
+    <input type="number" name="stockChange" placeholder="Stock Change (+/-)" required>
+    <button type="submit">Update Stock</button>
+  </form>
+</div>
+
+<div class="section">
+  <h2>2.3 Cost Calculation for Customers</h2>
+  <form id="cost-calculator-form">
+    <select name="categoryId" required></select>
+    <input type="number" name="quantity" placeholder="Quantity to Buy" min="1" required>
+    <button type="submit">Calculate Total Cost</button>
+  </form>
+  <div>
+    <strong>Total Cost:</strong> $<span id="calculated-cost">0.00</span>
+  </div>
+</div>
+
+<!-- 2.4 Packaging -->
+<div class="section">
+  <h2>2.4 Packaging</h2>
+  <p>Convert raw blueberries from an Inventory Item into packaged units of a selected category.</p>
+  <form id="packaging-form">
+    <select name="inventoryItemId" required></select>
+    <select name="categoryId" required></select>
+    <input type="number" name="unitsToPackage" placeholder="Number of Units to Package" min="1" required>
+    <button type="submit">Package</button>
+  </form>
+  <div id="packaging-result"></div>
+</div>
+
+<!-- 3. Sales Management Module -->
+<div class="section">
+  <h2>3. Sales Management</h2>
+  <h3>Order Management</h3>
+  <form id="order-form">
+    <input type="text" name="customerName" placeholder="Customer Name" required>
+    <input type="text" name="customerContact" placeholder="Customer Contact" required>
+    <input type="text" name="shippingInfo" placeholder="Shipping Information" required>
+    <select name="inventoryItemId" required></select>
+    <input type="number" name="quantity" placeholder="Quantity" min="1" required>
+    <select name="status" required>
+      <option value="Pending">Pending</option>
+      <option value="Processed">Processed</option>
+      <option value="Shipped">Shipped</option>
+      <option value="Delivered">Delivered</option>
+    </select>
+    <button type="submit">Add Order</button>
+  </form>
+
+  <h4>Filter Orders</h4>
+  <input type="text" id="order-search-customer" placeholder="Search by Customer Name...">
+  <select id="order-filter-category">
+    <option value="">All Package Categories</option>
+  </select>
+  <select id="order-filter-status">
+    <option value="">All Statuses</option>
+    <option value="Pending">Pending</option>
+    <option value="Processed">Processed</option>
+    <option value="Shipped">Shipped</option>
+    <option value="Delivered">Delivered</option>
+  </select>
+  <button id="filter-orders">Filter Orders</button>
+
+  <table id="orders-table">
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Customer</th>
+        <th>Contact</th>
+        <th>Shipping Info</th>
+        <th>Inventory Item</th>
+        <th>Quantity</th>
+        <th>Total Price</th>
+        <th>Status</th>
+        <th>Update Status</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Sales Reports</h3>
+  <button id="generate-sales-report">Generate Sales Report</button>
+  <div id="sales-report"></div>
+  <button id="export-sales-report">Export Sales Report (CSV)</button>
+</div>
+
+<!-- 4. Financial Analysis Module -->
+<div class="section">
+  <h2>4. Financial Analysis</h2>
+  <form id="financial-form">
+    <input type="date" name="start" required>
+    <input type="date" name="end" required>
+    <input type="number" step="0.01" name="taxRate" placeholder="Tax Rate (e.g., 0.15)" required>
+    <button type="submit">Calculate Financial Analysis</button>
+  </form>
+  <div>
+    <strong>Income (Sales):</strong> $<span id="financial-income">0.00</span><br>
+    <strong>Expenses (Purchases):</strong> $<span id="financial-expenses">0.00</span><br>
+    <strong>Tax Amount:</strong> $<span id="financial-tax">0.00</span><br>
+    <strong>Net Profit:</strong> $<span id="financial-net-profit">0.00</span>
+  </div>
+</div>
+
+<!-- 5. Inventory Management Module (Fresh/Frozen/Organic, etc.) -->
+<div class="section">
+  <h2>5. Inventory Management Module (Actual Stock)</h2>
+  <form id="inventory-item-form">
+    <input type="hidden" name="id">
+    <input type="text" name="category" placeholder="e.g. Fresh, Frozen, Organic" required>
+    <input type="number" name="quantityAvailable" placeholder="Quantity Available (kg)" min="0" required>
+    <input type="number" name="reorderLevel" placeholder="Reorder Level" min="0" required>
+    <input type="date" name="restockDate" placeholder="Restock Date">
+    <input type="text" name="storageLocation" placeholder="Storage Location (e.g. Warehouse A)">
+    <button type="submit">Add/Update Inventory Item</button>
+  </form>
+
+  <table id="inventory-items-table">
+    <thead>
+      <tr>
+        <th>Item ID</th>
+        <th>Category</th>
+        <th>Quantity Available (kg)</th>
+        <th>Reorder Level</th>
+        <th>Restock Date</th>
+        <th>Storage Location</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h4>Demand Forecasting</h4>
+  <p>Analyzes recent orders to predict if demand is increasing. If stock is below reorder level, recommends reorder.</p>
+  <button id="demand-forecasting-btn">Generate Demand Forecast</button>
+  <div id="demand-forecasting-result"></div>
+
+  <h4>Inventory Reporting</h4>
+  <select id="inventory-report-period">
+    <option value="daily">Daily</option>
+    <option value="weekly">Weekly</option>
+    <option value="monthly">Monthly</option>
+  </select>
+  <button id="generate-inventory-report">Generate Inventory Report</button>
+  <div id="inventory-report"></div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
