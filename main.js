@@ -1,6 +1,288 @@
-// Existing classes (Farmer, FarmersManager, Purchase, PurchasesManager, ExpenseCalculator, Category, CategoriesManager, Order, OrdersManager) remain as previously integrated.
+// ===== CLASSES =====
 
-// ===== NEW CLASSES FOR THE INVENTORY MANAGEMENT MODULE =====
+// Updated Farmer class with phone, email, address, region, gpsCoordinates
+class Farmer {
+  constructor(id, name, phone, email, address, region, gpsCoordinates) {
+    this.id = id;
+    this.name = name;
+    this.phone = phone;
+    this.email = email;
+    this.address = address;
+    this.region = region;
+    this.gpsCoordinates = gpsCoordinates;
+  }
+}
+
+class FarmersManager {
+  constructor() {
+    this.load();
+  }
+  load() {
+    const data = localStorage.getItem('farmers');
+    this.farmers = data ? JSON.parse(data) : [];
+  }
+  save() {
+    localStorage.setItem('farmers', JSON.stringify(this.farmers));
+  }
+
+  addFarmer(name, phone, email, address, region, gpsCoordinates) {
+    const farmer = new Farmer(Date.now(), name, phone, email, address, region, gpsCoordinates);
+    this.farmers.push(farmer);
+    this.save();
+    return farmer;
+  }
+
+  updateFarmer(id, name, phone, email, address, region, gpsCoordinates) {
+    const idx = this.farmers.findIndex(f => f.id == id);
+    if (idx > -1) {
+      this.farmers[idx].name = name;
+      this.farmers[idx].phone = phone;
+      this.farmers[idx].email = email;
+      this.farmers[idx].address = address;
+      this.farmers[idx].region = region;
+      this.farmers[idx].gpsCoordinates = gpsCoordinates;
+      this.save();
+    }
+  }
+
+  deleteFarmer(id) {
+    this.farmers = this.farmers.filter(f => f.id != id);
+    this.save();
+  }
+
+  // Search by name or region
+  search(query) {
+    const lower = query.toLowerCase();
+    return this.farmers.filter(f =>
+      f.name.toLowerCase().includes(lower) ||
+      f.region.toLowerCase().includes(lower)
+    );
+  }
+
+  getAll() {
+    return this.farmers;
+  }
+}
+
+// Validation for farmer inputs
+function validateFarmerInputs(name, phone, email, address, region, gps) {
+  if (!name.trim()) return "Name is required.";
+  
+  const phoneRegex = /^[0-9]{5,15}$/;
+  if (!phoneRegex.test(phone)) return "Phone must be digits only (5-15 chars).";
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return "Invalid email format.";
+
+  if (!address.trim()) return "Address is required.";
+  if (!region.trim()) return "Region is required.";
+  if (!gps.trim()) return "GPS Coordinates are required.";
+
+  return null;
+}
+
+// Purchase, Category, Orders, Inventory classes remain the same from previous final integration
+class Purchase {
+  constructor(id, farmerId, inventoryItemId, date, quantity, pricePerKg) {
+    this.id = id;
+    this.farmerId = farmerId;
+    this.inventoryItemId = inventoryItemId;
+    this.date = date;
+    this.quantity = quantity;
+    this.pricePerKg = pricePerKg;
+    this.totalCost = quantity * pricePerKg;
+  }
+}
+
+class PurchasesManager {
+  constructor() {
+    this.load();
+  }
+  load() {
+    const data = localStorage.getItem('purchases');
+    this.purchases = data ? JSON.parse(data) : [];
+  }
+  save() {
+    localStorage.setItem('purchases', JSON.stringify(this.purchases));
+  }
+  addPurchase(farmerId, date, quantity, pricePerKg) {
+    const purchase = new Purchase(Date.now(), Number(farmerId), null, date, Number(quantity), Number(pricePerKg));
+    this.purchases.push(purchase);
+    this.save();
+    return purchase;
+  }
+  getAll() {
+    return this.purchases;
+  }
+  sortByField(field, farmers) {
+    if (field === 'date') {
+      this.purchases.sort((a, b) => new Date(a.date) - new Date(b.date));
+    } else if (field === 'amount') {
+      this.purchases.sort((a, b) => a.totalCost - b.totalCost);
+    } else if (field === 'farmer') {
+      this.purchases.sort((a, b) => {
+        const fA = farmers.find(f => f.id == a.farmerId)?.name || '';
+        const fB = farmers.find(f => f.id == b.farmerId)?.name || '';
+        return fA.localeCompare(fB);
+      });
+    }
+  }
+}
+
+class ExpenseCalculator {
+  constructor(purchases) {
+    this.purchases = purchases;
+  }
+  calculate(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let total = 0;
+    this.purchases.forEach(p => {
+      const pDate = new Date(p.date);
+      if (pDate >= start && pDate <= end) {
+        total += p.totalCost;
+      }
+    });
+    return total;
+  }
+}
+
+class Category {
+  constructor(id, name, weight, price, reorderThreshold = 10, stock = 0) {
+    this.id = id;
+    this.name = name;
+    this.weight = weight;
+    this.price = price;
+    this.reorderThreshold = reorderThreshold;
+    this.stock = stock;
+  }
+}
+
+class CategoriesManager {
+  constructor() {
+    this.load();
+  }
+  load() {
+    let data = localStorage.getItem('categories');
+    if (!data) {
+      const defaultCategories = [
+        new Category(1, "Small", "100g", 5.00, 10, 50),
+        new Category(2, "Medium", "250g", 10.00, 10, 30),
+        new Category(3, "Large", "500g", 18.00, 10, 20),
+        new Category(4, "Extra Large", "1kg", 30.00, 5, 10),
+        new Category(5, "Family Pack", "2kg", 50.00, 5, 5),
+        new Category(6, "Bulk Pack", "5kg", 100.00, 2, 2),
+        new Category(7, "Premium", "Custom", 0.00, 5, 0)
+      ];
+      this.categories = defaultCategories;
+      this.save();
+    } else {
+      this.categories = JSON.parse(data);
+    }
+  }
+  save() {
+    localStorage.setItem('categories', JSON.stringify(this.categories));
+  }
+  updatePrice(id, newPrice) {
+    const cat = this.categories.find(c => c.id == id);
+    if (cat) {
+      cat.price = Number(newPrice);
+      this.save();
+    }
+  }
+  updateThreshold(id, newThreshold) {
+    const cat = this.categories.find(c => c.id == id);
+    if (cat) {
+      cat.reorderThreshold = Number(newThreshold);
+      this.save();
+    }
+  }
+  updateStock(id, change) {
+    const cat = this.categories.find(c => c.id == id);
+    if (cat) {
+      cat.stock = cat.stock + Number(change);
+      if (cat.stock < 0) cat.stock = 0;
+      this.save();
+    }
+  }
+  getAll() {
+    return this.categories;
+  }
+}
+
+class Order {
+  constructor(id, orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status) {
+    this.id = id;
+    this.orderDate = orderDate;
+    this.customerName = customerName;
+    this.customerContact = customerContact;
+    this.shippingInfo = shippingInfo;
+    this.categoryId = categoryId;
+    this.quantity = quantity;
+    this.unitPrice = unitPrice;
+    this.totalPrice = this.unitPrice * this.quantity;
+    this.status = status;
+  }
+}
+
+class OrdersManager {
+  constructor() {
+    this.load();
+  }
+  load() {
+    const data = localStorage.getItem('orders');
+    this.orders = data ? JSON.parse(data) : [];
+  }
+  save() {
+    localStorage.setItem('orders', JSON.stringify(this.orders));
+  }
+  addOrder(orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status) {
+    const order = new Order(Date.now(), orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status);
+    this.orders.push(order);
+    this.save();
+    return order;
+  }
+  updateOrderStatus(id, newStatus) {
+    const order = this.orders.find(o => o.id == id);
+    if (order) {
+      order.status = newStatus;
+      this.save();
+    }
+  }
+  filterOrders({customerName = '', categoryId = '', status = ''}, categories) {
+    const cname = customerName.toLowerCase();
+    return this.orders.filter(o => {
+      let match = true;
+      if (cname && !o.customerName.toLowerCase().includes(cname)) match = false;
+      if (categoryId && o.categoryId != categoryId) match = false;
+      if (status && o.status != status) match = false;
+      return match;
+    });
+  }
+  getAll() { return this.orders; }
+  generateSalesReport(categories) {
+    const report = {
+      perCategory: {},
+      totalRevenue: 0,
+      totalUnits: 0
+    };
+    categories.forEach(cat => {
+      report.perCategory[cat.id] = {name: cat.name, units: 0, revenue: 0};
+    });
+
+    this.orders.forEach(o => {
+      const catReport = report.perCategory[o.categoryId];
+      if (catReport) {
+        catReport.units += o.quantity;
+        catReport.revenue += o.totalPrice;
+        report.totalRevenue += o.totalPrice;
+        report.totalUnits += o.quantity;
+      }
+    });
+    return report;
+  }
+}
+
 class InventoryItem {
   constructor(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation) {
     this.id = id;
@@ -16,19 +298,15 @@ class InventoryManager {
   constructor() {
     this.load();
   }
-
   load() {
     const data = localStorage.getItem('inventoryItems');
     this.inventoryItems = data ? JSON.parse(data) : [];
   }
-
   save() {
     localStorage.setItem('inventoryItems', JSON.stringify(this.inventoryItems));
   }
-
   addOrUpdateItem(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation) {
     if (id) {
-      // Update existing
       const item = this.inventoryItems.find(i => i.id == id);
       if (item) {
         item.category = category;
@@ -38,18 +316,15 @@ class InventoryManager {
         item.storageLocation = storageLocation;
       }
     } else {
-      // Add new
       const newItem = new InventoryItem(Date.now(), category, Number(quantityAvailable), Number(reorderLevel), restockDate, storageLocation);
       this.inventoryItems.push(newItem);
     }
     this.save();
   }
-
   deleteItem(id) {
     this.inventoryItems = this.inventoryItems.filter(i => i.id != id);
     this.save();
   }
-
   updateStock(id, change) {
     const item = this.inventoryItems.find(i => i.id == id);
     if (item) {
@@ -57,42 +332,34 @@ class InventoryManager {
       this.save();
     }
   }
-
   getAll() {
     return this.inventoryItems;
   }
-
-  // Check if any item needs reorder (quantity < reorderLevel)
   itemsNeedingReorder() {
     return this.inventoryItems.filter(i => i.quantityAvailable < i.reorderLevel);
   }
-
-  // Simple demand forecasting: Check if units sold in last period > earlier period
   demandForecast(ordersManager) {
     const allOrders = ordersManager.getAll();
-    // For simplicity, compare last 5 orders vs previous 5 orders total quantity
     const last5 = allOrders.slice(-5);
     const prev5 = allOrders.slice(-10, -5);
     const last5Sum = last5.reduce((sum, o) => sum + o.quantity, 0);
     const prev5Sum = prev5.reduce((sum, o) => sum + o.quantity, 0);
 
     let message = "Demand is stable.";
-    if (last5Sum > prev5Sum && prev5Sum !== 0) {
-      message = "Demand is increasing. Consider increasing reorder levels.";
-    } else if (last5Sum < prev5Sum && prev5Sum !== 0) {
-      message = "Demand is decreasing. You might reduce stock levels.";
+    if (prev5Sum !== 0) {
+      if (last5Sum > prev5Sum) {
+        message = "Demand is increasing. Consider increasing reorder levels.";
+      } else if (last5Sum < prev5Sum) {
+        message = "Demand is decreasing. You might reduce stock levels.";
+      }
     }
 
-    // Also if any item is below reorder level, suggest reorder
     const needsReorder = this.itemsNeedingReorder();
     if (needsReorder.length > 0) {
       message += "<br>Items below reorder level: " + needsReorder.map(i=>i.category).join(", ") + ". Consider reordering.";
     }
-
     return message;
   }
-
-  // Simple inventory report: count total items, total stock, items below reorder
   generateInventoryReport(period) {
     const all = this.getAll();
     const totalStock = all.reduce((sum, i) => sum + i.quantityAvailable, 0);
@@ -101,15 +368,14 @@ class InventoryManager {
   }
 }
 
-// ===== DOMContentLoaded =====
 document.addEventListener('DOMContentLoaded', () => {
   const farmersManager = new FarmersManager();
   const purchasesManager = new PurchasesManager();
   const categoriesManager = new CategoriesManager();
   const ordersManager = new OrdersManager();
-  const inventoryManager = new InventoryManager(); // new inventory manager
+  const inventoryManager = new InventoryManager();
 
-  // Elements for Farmers & Purchases
+  // ELEMENTS
   const farmerForm = document.getElementById('farmer-form');
   const farmersTableBody = document.querySelector('#farmers-table tbody');
   const farmerSearch = document.getElementById('farmer-search');
@@ -124,7 +390,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const expenseForm = document.getElementById('expense-form');
   const totalExpensesEl = document.getElementById('total-expenses');
 
-  // Categories & Inventory
   const categoriesTableBody = document.querySelector('#categories-table tbody');
   const categoryPriceForm = document.getElementById('category-price-form');
   const inventoryTableBody = document.querySelector('#inventory-table tbody');
@@ -138,26 +403,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const categorySelectForStock = stockForm.querySelector('select[name="categoryId"]');
   const categorySelectForCalc = costCalcForm.querySelector('select[name="categoryId"]');
 
-  // Orders
+  const packagingForm = document.getElementById('packaging-form');
+  const packagingResult = document.getElementById('packaging-result');
+
   const orderForm = document.getElementById('order-form');
-  const orderCategorySelect = document.getElementById('order-filter-category');
   const ordersTableBody = document.querySelector('#orders-table tbody');
   const orderSearchCustomer = document.getElementById('order-search-customer');
+  const orderFilterCategory = document.getElementById('order-filter-category');
   const orderFilterStatus = document.getElementById('order-filter-status');
-
   const filterOrdersBtn = document.getElementById('filter-orders');
   const generateSalesReportBtn = document.getElementById('generate-sales-report');
   const exportSalesReportBtn = document.getElementById('export-sales-report');
   const salesReportDiv = document.getElementById('sales-report');
 
-  // Financial Analysis
   const financialForm = document.getElementById('financial-form');
   const financialIncomeEl = document.getElementById('financial-income');
   const financialExpensesEl = document.getElementById('financial-expenses');
   const financialTaxEl = document.getElementById('financial-tax');
   const financialNetProfitEl = document.getElementById('financial-net-profit');
 
-  // Inventory Items (Module 5)
   const inventoryItemForm = document.getElementById('inventory-item-form');
   const inventoryItemsTableBody = document.querySelector('#inventory-items-table tbody');
   const demandForecastingBtn = document.getElementById('demand-forecasting-btn');
@@ -165,9 +429,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const inventoryReportPeriod = document.getElementById('inventory-report-period');
   const generateInventoryReportBtn = document.getElementById('generate-inventory-report');
   const inventoryReportDiv = document.getElementById('inventory-report');
-  const orderFormInventorySelect = orderForm.querySelector('select[name="inventoryItemId"]');
 
-  // ===== Render Functions =====
+  const comprehensiveReportForm = document.getElementById('comprehensive-report-form');
+  const comprehensiveReportResult = document.getElementById('comprehensive-report-result');
+  const exportComprehensiveReportBtn = document.getElementById('export-comprehensive-report');
+
+  // RENDER FUNCTIONS
   function renderFarmers(farmers) {
     farmersTableBody.innerHTML = '';
     farmers.forEach(f => {
@@ -175,8 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
       tr.innerHTML = `
         <td>${f.id}</td>
         <td>${f.name}</td>
-        <td>${f.contact}</td>
-        <td>${f.location}</td>
+        <td>${f.phone}</td>
+        <td>${f.email}</td>
+        <td>${f.address}</td>
+        <td>${f.region}</td>
+        <td>${f.gpsCoordinates}</td>
         <td>
           <button class="edit-farmer" data-id="${f.id}">Edit</button>
           <button class="delete-farmer" data-id="${f.id}">Delete</button>
@@ -187,9 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadFarmers(filter = '') {
-    const farmers = filter ? farmersManager.search(filter) : farmersManager.getAll();
+    let farmers = filter ? farmersManager.search(filter) : farmersManager.getAll();
     renderFarmers(farmers);
-    populateFarmerSelect();
   }
 
   function populateFarmerSelect() {
@@ -206,17 +475,19 @@ document.addEventListener('DOMContentLoaded', () => {
   function populateInventoryItemSelects() {
     const items = inventoryManager.getAll();
     purchaseInventoryItemSelect.innerHTML = '<option value="">Select Inventory Item</option>';
-    orderFormInventorySelect.innerHTML = '<option value="">Select Inventory Item</option>';
     items.forEach(i => {
       const opt1 = document.createElement('option');
       opt1.value = i.id;
       opt1.textContent = i.category;
       purchaseInventoryItemSelect.appendChild(opt1);
-
-      const opt2 = document.createElement('option');
-      opt2.value = i.id;
-      opt2.textContent = i.category;
-      orderFormInventorySelect.appendChild(opt2);
+    });
+    const packagingInventoryItemSelect = packagingForm.querySelector('select[name="inventoryItemId"]');
+    packagingInventoryItemSelect.innerHTML = '<option value="">Select Raw Inventory Item</option>';
+    items.forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.id;
+      opt.textContent = `${i.category} (Raw Inventory)`;
+      packagingInventoryItemSelect.appendChild(opt);
     });
   }
 
@@ -278,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     categorySelectForThreshold.innerHTML = '<option value="">Select Category</option>';
     categorySelectForStock.innerHTML = '<option value="">Select Category</option>';
     categorySelectForCalc.innerHTML = '<option value="">Select Category</option>';
-    orderCategorySelect.innerHTML = '<option value="">All Package Categories</option>';
+    orderFilterCategory.innerHTML = '<option value="">All Package Categories</option>';
 
     categories.forEach(cat => {
       const tr = document.createElement('tr');
@@ -310,23 +581,23 @@ document.addEventListener('DOMContentLoaded', () => {
       let opt4 = document.createElement('option');
       opt4.value = cat.id;
       opt4.textContent = cat.name;
-      orderCategorySelect.appendChild(opt4);
+      orderFilterCategory.appendChild(opt4);
     });
   }
 
   function renderOrders(orders) {
-    const items = inventoryManager.getAll();
+    const categories = categoriesManager.getAll();
     ordersTableBody.innerHTML = '';
     orders.forEach(o => {
-      const item = items.find(i => i.id == o.inventoryItemId);
-      const itemName = item ? item.category : 'Unknown';
+      const cat = categories.find(c => c.id == o.categoryId);
+      const categoryName = cat ? cat.name : 'Unknown';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${o.id}</td>
         <td>${o.customerName}</td>
         <td>${o.customerContact}</td>
         <td>${o.shippingInfo}</td>
-        <td>${itemName}</td>
+        <td>${categoryName}</td>
         <td>${o.quantity}</td>
         <td>$${o.totalPrice.toFixed(2)}</td>
         <td>${o.status}</td>
@@ -388,16 +659,19 @@ document.addEventListener('DOMContentLoaded', () => {
     URL.revokeObjectURL(url);
   }
 
-  // Financial Analysis
   function calculateFinancialAnalysis(startDate, endDate, taxRate) {
     const orders = ordersManager.getAll();
     const purchases = purchasesManager.getAll();
-
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // For simplicity, no order date field is stored; consider all orders as in the period
-    let income = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    let income = 0;
+    orders.forEach(o => {
+      const oDate = new Date(o.orderDate);
+      if (oDate >= start && oDate <= end) {
+        income += o.totalPrice;
+      }
+    });
 
     let expenses = 0;
     purchases.forEach(p => {
@@ -416,7 +690,6 @@ document.addEventListener('DOMContentLoaded', () => {
     financialNetProfitEl.textContent = netProfit.toFixed(2);
   }
 
-  // Inventory Items
   function renderInventoryItems() {
     const items = inventoryManager.getAll();
     inventoryItemsTableBody.innerHTML = '';
@@ -424,7 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const belowReorder = i.quantityAvailable < i.reorderLevel;
       tr.classList.toggle('low-stock', belowReorder);
-      // If restock date is soon (within next 3 days), highlight
       const restockSoon = i.restockDate && (new Date(i.restockDate) - new Date()) < 3*24*60*60*1000;
       if (restockSoon) tr.classList.add('reorder-alert');
       tr.innerHTML = `
@@ -443,32 +715,148 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Demand Forecasting
   function showDemandForecast() {
     const message = inventoryManager.demandForecast(ordersManager);
     demandForecastingResult.innerHTML = message;
   }
 
-  // Inventory Reporting
   function showInventoryReport() {
     const period = inventoryReportPeriod.value;
     const reportMsg = inventoryManager.generateInventoryReport(period);
     inventoryReportDiv.innerHTML = reportMsg;
   }
 
-  // Event Listeners for Farmers
+  function generateComprehensiveReport(startDate, endDate, taxRate) {
+    const orders = ordersManager.getAll();
+    const purchases = purchasesManager.getAll();
+    const categories = categoriesManager.getAll();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const filteredOrders = orders.filter(o => {
+      const oDate = new Date(o.orderDate);
+      return oDate >= start && oDate <= end;
+    });
+    const filteredPurchases = purchases.filter(p => {
+      const pDate = new Date(p.date);
+      return pDate >= start && pDate <= end;
+    });
+
+    let income = 0;
+    const categorySales = {};
+    categories.forEach(c => { categorySales[c.id] = { name: c.name, units: 0 }; });
+
+    filteredOrders.forEach(o => {
+      income += o.totalPrice;
+      if (categorySales[o.categoryId]) {
+        categorySales[o.categoryId].units += o.quantity;
+      }
+    });
+
+    let expenses = 0;
+    filteredPurchases.forEach(p => {
+      expenses += p.totalCost;
+    });
+
+    const tax = income * taxRate;
+    const netProfit = income - expenses - tax;
+
+    const categoryStockInfo = categories.map(c => {
+      return {name: c.name, stock: c.stock};
+    });
+
+    return {
+      income,
+      expenses,
+      tax,
+      netProfit,
+      categorySales,
+      categoryStockInfo,
+      startDate,
+      endDate,
+      taxRate
+    };
+  }
+
+  function displayComprehensiveReport(report) {
+    let html = `<h4>Comprehensive Report (${report.startDate} to ${report.endDate})</h4>`;
+    html += `<p><strong>Income:</strong> $${report.income.toFixed(2)}</p>`;
+    html += `<p><strong>Expenses:</strong> $${report.expenses.toFixed(2)}</p>`;
+    html += `<p><strong>Tax (${(report.taxRate*100).toFixed(2)}%):</strong> $${report.tax.toFixed(2)} (Applied correctly to income)</p>`;
+    html += `<p><strong>Net Profit:</strong> $${report.netProfit.toFixed(2)}</p>`;
+
+    html += `<h5>Units Sold per Category</h5>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Units Sold</th></tr>`;
+    for (let catId in report.categorySales) {
+      const c = report.categorySales[catId];
+      html += `<tr><td>${c.name}</td><td>${c.units}</td></tr>`;
+    }
+    html += `</table>`;
+
+    html += `<h5>Current Stock per Category</h5>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Stock</th></tr>`;
+    report.categoryStockInfo.forEach(ci => {
+      html += `<tr><td>${ci.name}</td><td>${ci.stock}</td></tr>`;
+    });
+    html += `</table>`;
+
+    comprehensiveReportResult.innerHTML = html;
+    exportComprehensiveReportBtn.style.display = 'inline-block';
+    exportComprehensiveReportBtn.dataset.report = JSON.stringify(report);
+  }
+
+  function exportComprehensiveReportCSV(report) {
+    let csv = `Comprehensive Report,${report.startDate} to ${report.endDate}\n`;
+    csv += `Income,${report.income.toFixed(2)}\n`;
+    csv += `Expenses,${report.expenses.toFixed(2)}\n`;
+    csv += `Tax (${(report.taxRate*100).toFixed(2)}%),${report.tax.toFixed(2)}\n`;
+    csv += `Net Profit,${report.netProfit.toFixed(2)}\n\n`;
+
+    csv += `Units Sold per Category\n`;
+    csv += `Category,Units Sold\n`;
+    for (let catId in report.categorySales) {
+      const c = report.categorySales[catId];
+      csv += `${c.name},${c.units}\n`;
+    }
+
+    csv += `\nCurrent Stock per Category\n`;
+    csv += `Category,Stock\n`;
+    report.categoryStockInfo.forEach(ci => {
+      csv += `${ci.name},${ci.stock}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "comprehensive_report.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // EVENT LISTENERS
   farmerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(farmerForm);
     const id = formData.get('id');
     const name = formData.get('name');
-    const contact = formData.get('contact');
-    const location = formData.get('location');
+    const phone = formData.get('phone');
+    const email = formData.get('email');
+    const address = formData.get('address');
+    const region = formData.get('region');
+    const gps = formData.get('gpsCoordinates');
+
+    const error = validateFarmerInputs(name, phone, email, address, region, gps);
+    if (error) {
+      alert(error);
+      return;
+    }
 
     if (id) {
-      farmersManager.updateFarmer(id, name, contact, location);
+      farmersManager.updateFarmer(id, name, phone, email, address, region, gps);
     } else {
-      farmersManager.addFarmer(name, contact, location);
+      farmersManager.addFarmer(name, phone, email, address, region, gps);
     }
 
     farmerForm.reset();
@@ -486,8 +874,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (farmer) {
         farmerForm.elements['id'].value = farmer.id;
         farmerForm.elements['name'].value = farmer.name;
-        farmerForm.elements['contact'].value = farmer.contact;
-        farmerForm.elements['location'].value = farmer.location;
+        farmerForm.elements['phone'].value = farmer.phone;
+        farmerForm.elements['email'].value = farmer.email;
+        farmerForm.elements['address'].value = farmer.address;
+        farmerForm.elements['region'].value = farmer.region;
+        farmerForm.elements['gpsCoordinates'].value = farmer.gpsCoordinates;
       }
     }
   });
@@ -498,9 +889,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   exportFarmersBtn.addEventListener('click', () => {
     const farmers = farmersManager.getAll();
-    let csv = "FarmerID,Name,Contact,Location\n";
+    let csv = "FarmerID,Name,Phone,Email,Address,Region,GPS\n";
     farmers.forEach(f => {
-      csv += `${f.id},${f.name},${f.contact},${f.location}\n`;
+      csv += `${f.id},${f.name},${f.phone},${f.email},${f.address},${f.region},${f.gpsCoordinates}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -511,7 +902,6 @@ document.addEventListener('DOMContentLoaded', () => {
     URL.revokeObjectURL(url);
   });
 
-  // Purchases
   purchaseForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(purchaseForm);
@@ -523,9 +913,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const p = purchasesManager.addPurchase(farmerId, date, quantity, pricePerKg);
     p.inventoryItemId = Number(inventoryItemId);
-    // Increase stock in inventory item
-    inventoryManager.updateStock(inventoryItemId, quantity);
     purchasesManager.save();
+
+    // Increase stock in raw inventory
+    inventoryManager.updateStock(inventoryItemId, quantity);
 
     purchaseForm.reset();
     renderPurchases();
@@ -540,7 +931,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Expenses
   expenseForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(expenseForm);
@@ -549,7 +939,6 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateExpenses(start, end);
   });
 
-  // Categories & Inventory
   categoryPriceForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(categoryPriceForm);
@@ -600,29 +989,107 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Orders
+  packagingForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(packagingForm);
+    const inventoryItemId = formData.get('inventoryItemId');
+    const categoryId = formData.get('categoryId');
+    const unitsToPackage = parseInt(formData.get('unitsToPackage'), 10);
+
+    const item = inventoryManager.getAll().find(i => i.id == inventoryItemId);
+    const cat = categoriesManager.getAll().find(c => c.id == categoryId);
+
+    if (!item || !cat) {
+      packagingResult.innerHTML = "<p style='color:red;'>Invalid selection. Please choose a valid inventory item and category.</p>";
+      return;
+    }
+
+    let weightStr = cat.weight.toLowerCase();
+    let weightKg;
+    if (weightStr.includes('g')) {
+      const grams = parseFloat(weightStr);
+      weightKg = grams / 1000;
+    } else if (weightStr.includes('kg')) {
+      weightKg = parseFloat(weightStr);
+    } else {
+      weightKg = 1;
+    }
+
+    const totalNeeded = weightKg * unitsToPackage;
+
+    if (item.quantityAvailable < totalNeeded) {
+      packagingResult.innerHTML = `<p style='color:red;'>Not enough raw inventory. Needed ${totalNeeded} kg, but only ${item.quantityAvailable} kg available.</p>`;
+      return;
+    }
+
+    item.quantityAvailable -= totalNeeded;
+    inventoryManager.save();
+
+    categoriesManager.updateStock(categoryId, unitsToPackage);
+
+    packagingResult.innerHTML = `<p style='color:green;'>Successfully packaged ${unitsToPackage} units of ${cat.name}, using ${totalNeeded} kg of ${item.category}.</p>`;
+
+    checkForLowStockAlerts();
+    renderInventoryItems();
+    renderCategories();
+    renderInventory();
+  });
+
+  function checkForLowStockAlerts() {
+    const categories = categoriesManager.getAll();
+    const lowStockCategories = categories.filter(c => c.stock < c.reorderThreshold);
+
+    if (lowStockCategories.length > 0) {
+      let msg = "<p style='color:orange; font-weight:bold;'>Alert: The following categories are below their reorder threshold:</p><ul>";
+      lowStockCategories.forEach(c => {
+        msg += `<li>${c.name}: Stock=${c.stock}, Reorder Threshold=${c.reorderThreshold}</li>`;
+      });
+      msg += "</ul><p>Please consider reordering from suppliers to maintain sufficient inventory.</p>";
+      packagingResult.innerHTML += msg;
+    }
+  }
+
+  function populateOrderFormCategorySelect() {
+    const categories = categoriesManager.getAll();
+    const categorySelect = orderForm.querySelector('select[name="categoryId"]');
+    categorySelect.innerHTML = '<option value="">Select Category</option>';
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      categorySelect.appendChild(opt);
+    });
+  }
+
   orderForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(orderForm);
     const customerName = formData.get('customerName');
     const customerContact = formData.get('customerContact');
     const shippingInfo = formData.get('shippingInfo');
-    const inventoryItemId = formData.get('inventoryItemId');
-    const quantity = formData.get('quantity');
+    const orderDate = formData.get('orderDate');
+    const categoryId = formData.get('categoryId');
+    const quantity = Number(formData.get('quantity'));
     const status = formData.get('status');
-    const items = inventoryManager.getAll();
-    const item = items.find(i => i.id == inventoryItemId);
-    if (item) {
-      const unitPrice = 10; // For simplicity, assume a fixed price or could link to categories. 
-      // Or store price in InventoryItem if desired. For now, let's just use a fixed price or zero.
-      // Let's assume inventory items also have a price. If not defined, use a default:
-      const order = ordersManager.addOrder(customerName, customerContact, shippingInfo, inventoryItemId, quantity, unitPrice, status);
-      // Decrease stock of the inventory item
-      inventoryManager.updateStock(inventoryItemId, -quantity);
-      orderForm.reset();
-      filterAndRenderOrders();
-      renderInventoryItems();
+
+    const categories = categoriesManager.getAll();
+    const cat = categories.find(c => c.id == categoryId);
+    if (!cat) {
+      alert("Invalid category selected.");
+      return;
     }
+
+    if (cat.stock < quantity) {
+      alert(`Not enough stock in category ${cat.name}. Available: ${cat.stock}, Requested: ${quantity}`);
+      return;
+    }
+
+    categoriesManager.updateStock(categoryId, -quantity);
+    const unitPrice = cat.price;
+    ordersManager.addOrder(orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status);
+    orderForm.reset();
+    filterAndRenderOrders();
+    renderInventory();
   });
 
   ordersTableBody.addEventListener('change', (e) => {
@@ -636,14 +1103,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   filterOrdersBtn.addEventListener('click', filterAndRenderOrders);
 
-  generateSalesReportBtn.addEventListener('click', generateSalesReport);
+  generateSalesReportBtn.addEventListener('click', () => {
+    const report = generateSalesReport();
+    exportSalesReportBtn.dataset.report = JSON.stringify(report);
+  });
 
   exportSalesReportBtn.addEventListener('click', () => {
-    const report = ordersManager.generateSalesReport(categoriesManager.getAll());
+    const report = JSON.parse(exportSalesReportBtn.dataset.report);
     exportSalesReportCSV(report);
   });
 
-  // Financial Analysis
   financialForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(financialForm);
@@ -653,7 +1122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateFinancialAnalysis(start, end, taxRate);
   });
 
-  // Inventory Item Form
   inventoryItemForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(inventoryItemForm);
@@ -689,104 +1157,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  demandForecastingBtn.addEventListener('click', () => {
-    showDemandForecast();
-  });
+  demandForecastingBtn.addEventListener('click', showDemandForecast);
+  generateInventoryReportBtn.addEventListener('click', showInventoryReport);
 
-  generateInventoryReportBtn.addEventListener('click', () => {
-    showInventoryReport();
-  });
-
-
-  // Elements for Packaging
-  const packagingForm = document.getElementById('packaging-form');
-  const packagingResult = document.getElementById('packaging-result');
-  const packagingInventoryItemSelect = packagingForm.querySelector('select[name="inventoryItemId"]');
-  const packagingCategorySelect = packagingForm.querySelector('select[name="categoryId"]');
-
-  // Extend the initial load functions to also populate the packaging form selects
-  function populatePackagingFormSelects() {
-    const items = inventoryManager.getAll();
-    const categories = categoriesManager.getAll();
-
-    packagingInventoryItemSelect.innerHTML = '<option value="">Select Raw Inventory Item</option>';
-    items.forEach(i => {
-      const opt = document.createElement('option');
-      opt.value = i.id;
-      opt.textContent = `${i.category} (Raw Inventory)`;
-      packagingInventoryItemSelect.appendChild(opt);
-    });
-
-    packagingCategorySelect.innerHTML = '<option value="">Select Category</option>';
-    categories.forEach(cat => {
-      const opt = document.createElement('option');
-      opt.value = cat.id;
-      opt.textContent = cat.name;
-      packagingCategorySelect.appendChild(opt);
-    });
-  }
-
-  // Call populate after data is loaded
-  populatePackagingFormSelects();
-
-  // Packaging Event Listener
-  packagingForm.addEventListener('submit', (e) => {
+  comprehensiveReportForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const formData = new FormData(packagingForm);
-    const inventoryItemId = formData.get('inventoryItemId');
-    const categoryId = formData.get('categoryId');
-    const unitsToPackage = parseInt(formData.get('unitsToPackage'), 10);
-
-    const item = inventoryManager.getAll().find(i => i.id == inventoryItemId);
-    const cat = categoriesManager.getAll().find(c => c.id == categoryId);
-
-    if (!item || !cat) {
-      packagingResult.innerHTML = "<p style='color:red;'>Invalid selection. Please choose a valid inventory item and category.</p>";
-      return;
-    }
-
-    // Determine weight needed: category.weight could be something like "100g" or "1kg".
-    // Convert it to kg for calculation.
-    let weightStr = cat.weight.toLowerCase();
-    let weightKg;
-    if (weightStr.includes('g')) {
-      // e.g., "100g"
-      const grams = parseFloat(weightStr);
-      weightKg = grams / 1000;
-    } else if (weightStr.includes('kg')) {
-      // e.g., "1kg"
-      weightKg = parseFloat(weightStr); 
-    } else {
-      // If it's "Custom" or something else, for simplicity assume 1kg
-      weightKg = 1;
-    }
-
-    const totalNeeded = weightKg * unitsToPackage; // total kg needed from raw inventory
-
-    if (item.quantityAvailable < totalNeeded) {
-      packagingResult.innerHTML = `<p style='color:red;'>Not enough raw inventory. Needed ${totalNeeded} kg, but only ${item.quantityAvailable} kg available.</p>`;
-      return;
-    }
-
-    // Proceed with packaging:
-    // Deduct from raw inventory item
-    item.quantityAvailable -= totalNeeded;
-    inventoryManager.save();
-
-    // Add units to the chosen category stock
-    categoriesManager.updateStock(categoryId, unitsToPackage);
-    // categoriesManager.save() is called inside updateStock
-
-    // Update UI
-    packagingResult.innerHTML = `<p style='color:green;'>Successfully packaged ${unitsToPackage} units of ${cat.name}, using ${totalNeeded} kg of ${item.category}.</p>`;
-
-    // Refresh displays
-    renderInventoryItems();
-    renderCategories(); // to update category stock
-    renderInventory();  // update category inventories if needed
+    const formData = new FormData(comprehensiveReportForm);
+    const start = formData.get('start');
+    const end = formData.get('end');
+    const taxRate = parseFloat(formData.get('taxRate'));
+    const report = generateComprehensiveReport(start, end, taxRate);
+    displayComprehensiveReport(report);
   });
 
-  // Initial Load
+  exportComprehensiveReportBtn.addEventListener('click', () => {
+    const report = JSON.parse(exportComprehensiveReportBtn.dataset.report);
+    exportComprehensiveReportCSV(report);
+  });
+
+  // INITIAL LOAD
   loadFarmers();
   renderPurchases();
   renderCategories();
@@ -794,4 +1183,5 @@ document.addEventListener('DOMContentLoaded', () => {
   filterAndRenderOrders();
   renderInventoryItems();
   populateInventoryItemSelects();
+  populateOrderFormCategorySelect();
 });

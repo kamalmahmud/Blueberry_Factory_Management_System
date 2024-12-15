@@ -1,0 +1,140 @@
+
+  body {
+    font-family: Arial, sans-serif; 
+    margin: 0; 
+    background: #f9f9f9; 
+    color: #333;
+  }
+
+  header {
+    background: #2c3e50;
+    color: #fff;
+    padding: 20px;
+    text-align: center;
+  }
+
+  main {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 10px;
+    background: #fff;
+    border-radius: 5px;
+  }
+
+  h1, h2, h3, h4, h5 {
+    margin-bottom: 10px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  h1 {
+    font-size: 2em;
+  }
+
+  .section {
+    background: #fefefe;
+    padding: 20px;
+    margin-bottom: 40px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  form, table, .section h2, .section h3, .section h4 {
+    margin-bottom: 20px;
+  }
+
+  table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-top: 10px;
+  }
+
+  th, td { 
+    border: 1px solid #ccc; 
+    padding: 8px; 
+  }
+
+  th {
+    background: #eee; 
+    font-weight: normal;
+  }
+
+  input, select, button {
+    margin: 5px 0; 
+    padding: 8px;
+    font-size: 14px;
+    width: auto;
+  }
+
+  form input[type="text"], 
+  form input[type="number"], 
+  form input[type="date"], 
+  form select {
+    width: 200px;
+    max-width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+  }
+
+  form button {
+    background: #2c3e50; 
+    color: #fff; 
+    border: none; 
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  form button:hover {
+    background: #1a242f;
+  }
+
+  .low-stock { 
+    background-color: #ffdddd; 
+  }
+
+  .reorder-alert { 
+    background-color: #fff8e1; 
+  }
+
+  #packaging-result p {
+    margin: 5px 0;
+  }
+
+  #demand-forecasting-result, 
+  #inventory-report,
+  #sales-report, 
+  #comprehensive-report-result {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f4f4f4;
+    border-radius: 5px;
+  }
+
+  #export-farmers, 
+  #export-sales-report, 
+  #export-comprehensive-report,
+  #filter-orders,
+  #generate-sales-report,
+  #demand-forecasting-btn,
+  #generate-inventory-report {
+    margin-top: 10px;
+  }
+
+  /* Navigation heading styling */
+  header h1 {
+    font-size: 1.8em;
+    margin: 0;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    table, th, td {
+      font-size: 12px;
+    }
+    input, select, button {
+      width: 100%;
+    }
+  }

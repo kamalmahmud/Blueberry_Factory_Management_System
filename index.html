@@ -4,42 +4,50 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Comprehensive Blueberry Management System</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  h1, h2, h3, h4 { margin-bottom: 10px; }
-  form, table, .section { margin-bottom: 20px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { border: 1px solid #ccc; padding: 8px; }
-  th { background: #eee; }
-  input, select, button { margin: 5px 0; padding: 5px; }
-  .low-stock { background-color: #ffcccc; }
-  .reorder-alert { background-color: #fff3cd; }
-</style>
+<script src="main.js" defer></script>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<h1>Comprehensive Blueberry Management System</h1>
+<header>
+  <h1>Comprehensive Blueberry Management System</h1>
+</header>
 
+<main>
+
+<!-- The rest of the content remains structurally the same as the final code version -->
 <!-- 1. Supplier Management Module -->
+<!-- 1.1 Farmers' Information -->
 <div class="section">
   <h2>1.1 Farmers' Information</h2>
   <form id="farmer-form">
     <input type="hidden" name="id">
     <input type="text" name="name" placeholder="Farmer Name" required>
-    <input type="text" name="contact" placeholder="Contact Details" required>
-    <input type="text" name="location" placeholder="Location" required>
+
+    <!-- Contact Details -->
+    <input type="text" name="phone" placeholder="Phone (digits only)" required>
+    <input type="email" name="email" placeholder="Email" required>
+
+    <!-- Location Fields -->
+    <input type="text" name="address" placeholder="Address" required>
+    <input type="text" name="region" placeholder="Region" required>
+    <input type="text" name="gpsCoordinates" placeholder="GPS Coordinates" required>
+
     <button type="submit">Add/Update Farmer</button>
   </form>
 
-  <input type="text" id="farmer-search" placeholder="Search by name or location...">
+  <input type="text" id="farmer-search" placeholder="Search by name or region...">
 
   <table id="farmers-table">
     <thead>
       <tr>
         <th>Farmer ID</th>
         <th>Name</th>
-        <th>Contact</th>
-        <th>Location</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>Address</th>
+        <th>Region</th>
+        <th>GPS Coordinates</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -48,6 +56,7 @@
   
   <button id="export-farmers">Export Farmers (CSV)</button>
 </div>
+
 
 <div class="section">
   <h2>1.2 Purchase Records</h2>
@@ -91,11 +100,10 @@
     <button type="submit">Calculate Expenses</button>
   </form>
   <div>
-    <strong>Total Expenses for Selected Period: </strong><span id="total-expenses">0.00</span>
+    <strong>Total Expenses for Selected Period:</strong> $<span id="total-expenses">0.00</span>
   </div>
 </div>
 
-<!-- 2. Product Categorization and Pricing -->
 <div class="section">
   <h2>2.1 Product Categories & Pricing</h2>
   <table id="categories-table">
@@ -157,7 +165,6 @@
   </div>
 </div>
 
-<!-- 2.4 Packaging -->
 <div class="section">
   <h2>2.4 Packaging</h2>
   <p>Convert raw blueberries from an Inventory Item into packaged units of a selected category.</p>
@@ -170,7 +177,6 @@
   <div id="packaging-result"></div>
 </div>
 
-<!-- 3. Sales Management Module -->
 <div class="section">
   <h2>3. Sales Management</h2>
   <h3>Order Management</h3>
@@ -178,7 +184,8 @@
     <input type="text" name="customerName" placeholder="Customer Name" required>
     <input type="text" name="customerContact" placeholder="Customer Contact" required>
     <input type="text" name="shippingInfo" placeholder="Shipping Information" required>
-    <select name="inventoryItemId" required></select>
+    <input type="date" name="orderDate" required>
+    <select name="categoryId" required></select>
     <input type="number" name="quantity" placeholder="Quantity" min="1" required>
     <select name="status" required>
       <option value="Pending">Pending</option>
@@ -210,7 +217,7 @@
         <th>Customer</th>
         <th>Contact</th>
         <th>Shipping Info</th>
-        <th>Inventory Item</th>
+        <th>Category</th>
         <th>Quantity</th>
         <th>Total Price</th>
         <th>Status</th>
@@ -226,7 +233,6 @@
   <button id="export-sales-report">Export Sales Report (CSV)</button>
 </div>
 
-<!-- 4. Financial Analysis Module -->
 <div class="section">
   <h2>4. Financial Analysis</h2>
   <form id="financial-form">
@@ -240,12 +246,12 @@
     <strong>Expenses (Purchases):</strong> $<span id="financial-expenses">0.00</span><br>
     <strong>Tax Amount:</strong> $<span id="financial-tax">0.00</span><br>
     <strong>Net Profit:</strong> $<span id="financial-net-profit">0.00</span>
+    <p><em>Tax is applied to income, ensuring compliance with financial reporting standards.</em></p>
   </div>
 </div>
 
-<!-- 5. Inventory Management Module (Fresh/Frozen/Organic, etc.) -->
 <div class="section">
-  <h2>5. Inventory Management Module (Actual Stock)</h2>
+  <h2>5. Inventory Management Module (Raw Items)</h2>
   <form id="inventory-item-form">
     <input type="hidden" name="id">
     <input type="text" name="category" placeholder="e.g. Fresh, Frozen, Organic" required>
@@ -272,7 +278,7 @@
   </table>
 
   <h4>Demand Forecasting</h4>
-  <p>Analyzes recent orders to predict if demand is increasing. If stock is below reorder level, recommends reorder.</p>
+  <p>Analyzes recent orders to predict future demand.</p>
   <button id="demand-forecasting-btn">Generate Demand Forecast</button>
   <div id="demand-forecasting-result"></div>
 
@@ -286,6 +292,21 @@
   <div id="inventory-report"></div>
 </div>
 
-<script src="main.js"></script>
+<div class="section">
+  <h2>6. Comprehensive Reporting</h2>
+  <form id="comprehensive-report-form">
+    <input type="date" name="start" required>
+    <input type="date" name="end" required>
+    <input type="number" step="0.01" name="taxRate" placeholder="Tax Rate (e.g., 0.15)" required>
+    <button type="submit">Generate Comprehensive Report</button>
+  </form>
+
+  <div id="comprehensive-report-result"></div>
+  <button id="export-comprehensive-report" style="display:none;">Export Report (CSV)</button>
+</div>
+
+</main>
+
+
 </body>
 </html>
