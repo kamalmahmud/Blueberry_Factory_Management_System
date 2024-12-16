@@ -1,328 +1,439 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Comprehensive Blueberry Management System</title>
-  <script src="main.js" defer></script>
   <link rel="stylesheet" href="styles.css">
+  <script src="main.js" defer></script>
 </head>
 <body>
 
-<header>
   <h1>Comprehensive Blueberry Management System</h1>
-</header>
 
-<main>
+  <!-- Inventory Alerts Display -->
+  <div id="inventory-alerts"></div>
 
-<!-- 1. Supplier Management Module -->
+  <!-- ===== Farmers Management Module ===== -->
+  <section id="farmers-management">
+    <h2>Farmers Management</h2>
+    <form id="farmer-form">
+      <input type="hidden" name="id" id="farmerId">
+      <div>
+        <label for="name">Name:</label>
+        <input type="text" name="name" id="farmerName" required>
+      </div>
+      <div>
+        <label for="phone">Phone:</label>
+        <input type="text" name="phone" id="farmerPhone" required>
+      </div>
+      <div>
+        <label for="email">Email:</label>
+        <input type="email" name="email" id="farmerEmail" required>
+      </div>
+      <div>
+        <label for="address">Address:</label>
+        <input type="text" name="address" id="farmerAddress" required>
+      </div>
+      <div>
+        <label for="region">Region:</label>
+        <input type="text" name="region" id="farmerRegion" required>
+      </div>
+      <div>
+        <label for="gpsCoordinates">GPS Coordinates:</label>
+        <input type="text" name="gpsCoordinates" id="farmerGPS" required>
+      </div>
+      <button type="submit">Add Farmer</button>
+      <button type="reset">Reset</button>
+    </form>
 
-<!-- 1.1 Farmers' Information -->
+    <input type="text" id="farmer-search" placeholder="Search Farmers...">
+    <button id="export-farmers">Export Farmers as CSV</button>
 
-<div class="section">
-  <h2>1.1 Farmers' Information</h2>
-  <form id="farmer-form">
-    <input type="hidden" name="id">
-    <input type="text" name="name" placeholder="Farmer Name" required>
+    <table id="farmers-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Address</th>
+          <th>Region</th>
+          <th>GPS Coordinates</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Farmers will be dynamically populated here -->
+      </tbody>
+    </table>
+  </section>
 
-    <!-- Contact Details -->
-    <input type="text" name="phone" placeholder="Phone (digits only)" required>
-    <input type="email" name="email" placeholder="Email" required>
+  <!-- ===== Purchases Management Module ===== -->
+  <section id="purchases-management">
+    <h2>Purchases Management</h2>
+    <form id="purchase-form">
+      <div>
+        <label for="farmerId">Select Farmer:</label>
+        <select name="farmerId" id="purchaseFarmerSelect" required>
+          <option value="">Select Farmer</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <div>
+        <label for="date">Purchase Date:</label>
+        <input type="date" name="date" id="purchaseDate" required>
+      </div>
+      <div>
+        <label for="quantity">Quantity (kg):</label>
+        <input type="number" name="quantity" id="purchaseQuantity" min="0" step="0.01" required>
+      </div>
+      <div>
+        <label for="pricePerKg">Price per Kg ($):</label>
+        <input type="number" name="pricePerKg" id="purchasePricePerKg" min="0" step="0.01" required>
+      </div>
+      <button type="submit">Add Purchase</button>
+      <button type="reset">Reset</button>
+    </form>
 
-    <!-- Location Fields -->
-    <input type="text" name="address" placeholder="Address" required>
-    <input type="text" name="region" placeholder="Region" required>
-    <input type="text" name="gpsCoordinates" placeholder="GPS Coordinates" required>
+    <button class="sort-purchase" data-sort="date">Sort by Date</button>
+    <button class="sort-purchase" data-sort="totalCost">Sort by Total Cost</button>
 
-    <button type="submit">Add/Update Farmer</button>
-  </form>
+    <form id="purchase-summary-form">
+      <h3>Purchase Summary</h3>
+      <div>
+        <label for="summaryFarmerId">Farmer:</label>
+        <select name="farmerId" id="summaryFarmerId">
+          <option value="">All Farmers</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <div>
+        <label for="summaryStart">Start Date:</label>
+        <input type="date" name="start" id="summaryStart" required>
+      </div>
+      <div>
+        <label for="summaryEnd">End Date:</label>
+        <input type="date" name="end" id="summaryEnd" required>
+      </div>
+      <button type="submit">Generate Summary</button>
+    </form>
 
-  <input type="text" id="farmer-search" placeholder="Search by name or region...">
+    <div id="purchase-summary-result"></div>
 
-  <table id="farmers-table">
-    <thead>
-      <tr>
-        <th>Farmer ID</th>
-        <th>Name</th>
-        <th>Phone</th>
-        <th>Email</th>
-        <th>Address</th>
-        <th>Region</th>
-        <th>GPS Coordinates</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  
-  <button id="export-farmers">Export Farmers (CSV)</button>
-</div>
+    <table id="purchases-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Farmer</th>
+          <th>Date</th>
+          <th>Quantity (kg)</th>
+          <th>Price per Kg ($)</th>
+          <th>Total Cost ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Purchases will be dynamically populated here -->
+      </tbody>
+    </table>
+  </section>
 
+  <!-- ===== Expense Calculator Module ===== -->
+  <section id="expense-calculator">
+    <h2>Expense Calculator</h2>
+    <form id="expense-form">
+      <div>
+        <label for="expenseStart">Start Date:</label>
+        <input type="date" name="start" id="expenseStart" required>
+      </div>
+      <div>
+        <label for="expenseEnd">End Date:</label>
+        <input type="date" name="end" id="expenseEnd" required>
+      </div>
+      <button type="submit">Calculate Expenses</button>
+    </form>
+    <p>Total Expenses: $<span id="total-expenses">0.00</span></p>
+  </section>
 
-<!-- 1.2 Purchase Records -->
+  <!-- ===== Categories Management Module ===== -->
+  <section id="categories-management">
+    <h2>Categories Management</h2>
+    <form id="category-price-form">
+      <div>
+        <label for="categoryId">Select Category:</label>
+        <select name="categoryId" id="categorySelectForPrice" required>
+          <option value="">Select Category</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <div>
+        <label for="price">Price ($):</label>
+        <input type="number" name="price" id="categoryPrice" min="0" step="0.01" required>
+      </div>
+      <button type="submit">Update Price</button>
+      <button type="reset">Reset</button>
+    </form>
 
-<div class="section">
-  <h2>1.2 Purchase Records</h2>
-  <form id="purchase-form">
-    <!-- Select Farmer -->
-    <select name="farmerId" required></select>
+    <table id="categories-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Weight</th>
+          <th>Price ($)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Categories will be dynamically populated here -->
+      </tbody>
+    </table>
+  </section>
 
-    <!-- No inventory item field -->
-    <input type="date" name="date" required>
-    <input type="number" step="0.01" name="quantity" placeholder="Quantity (kg)" required>
-    <input type="number" step="0.01" name="pricePerKg" placeholder="Price per Kg" required>
-    <button type="submit">Add Purchase</button>
-  </form>
+  <!-- ===== Tax Rate Management Module ===== -->
+  <section id="tax-rate-management">
+    <h2>Tax Rate Management</h2>
+    
+    <!-- Tax Rate Form -->
+    <form id="tax-rate-form">
+      <input type="hidden" name="taxRateId" id="taxRateId">
+      <div>
+        <label for="taxRateName">Tax Rate Name:</label>
+        <input type="text" name="taxRateName" id="taxRateName" required>
+      </div>
+      <div>
+        <label for="taxRateValue">Tax Rate (%):</label>
+        <input type="number" name="taxRateValue" id="taxRateValue" min="0" step="0.01" required>
+      </div>
+      <div>
+        <button type="submit" id="add-tax-rate-btn">Add Tax Rate</button>
+        <button type="submit" id="update-tax-rate-btn" style="display:none;">Update Tax Rate</button>
+        <button type="reset">Reset</button>
+      </div>
+    </form>
 
-  <div>
-    Sort by:
-    <button class="sort-purchase" data-sort="date">Date</button>
-    <button class="sort-purchase" data-sort="farmer">Farmer</button>
-    <button class="sort-purchase" data-sort="amount">Amount</button>
-  </div>
+    <!-- Tax Rates Table -->
+    <h3>Existing Tax Rates</h3>
+    <table id="tax-rates-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Rate (%)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Tax rates will be dynamically populated here -->
+      </tbody>
+    </table>
+  </section>
 
-  <table id="purchases-table">
-    <thead>
-      <tr>
-        <th>Purchase ID</th>
-        <th>Farmer</th>
-        <th>Date</th>
-        <th>Quantity (kg)</th>
-        <th>Price/kg</th>
-        <th>Total Cost</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- ===== Inventory Management Module ===== -->
+  <section id="inventory-management">
+    <h2>Inventory Management</h2>
+    <form id="inventory-item-form">
+      <input type="hidden" name="id" id="inventoryItemId">
+      <div>
+        <label for="category">Category:</label>
+        <input type="text" name="category" id="inventoryCategory" required>
+      </div>
+      <div>
+        <label for="quantityAvailable">Quantity Available:</label>
+        <input type="number" name="quantityAvailable" id="inventoryQuantityAvailable" min="0" step="0.01" required>
+      </div>
+      <div>
+        <label for="reorderLevel">Reorder Level:</label>
+        <input type="number" name="reorderLevel" id="inventoryReorderLevel" min="0" step="1" required>
+      </div>
+      <div>
+        <label for="restockDate">Restock Date:</label>
+        <input type="date" name="restockDate" id="inventoryRestockDate">
+      </div>
+      <div>
+        <label for="storageLocation">Storage Location:</label>
+        <input type="text" name="storageLocation" id="inventoryStorageLocation">
+      </div>
+      <button type="submit">Add/Update Inventory Item</button>
+      <button type="reset">Reset</button>
+    </form>
 
-  <h4>Generate Purchase Summaries</h4>
-  <form id="purchase-summary-form">
-    <select name="farmerId">
-      <option value="">All Farmers</option>
+    <table id="inventory-items-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Category</th>
+          <th>Quantity Available</th>
+          <th>Reorder Level</th>
+          <th>Restock Date</th>
+          <th>Storage Location</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Inventory items will be dynamically populated here -->
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===== Packaging Module ===== -->
+  <section id="packaging">
+    <h2>Packaging</h2>
+    <form id="packaging-form">
+      <div>
+        <label for="inventoryItemId">Select Raw Inventory Item:</label>
+        <select name="inventoryItemId" id="inventoryItemSelect" required>
+          <option value="">Select Inventory Item</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <div>
+        <label for="categoryId">Select Package Category:</label>
+        <select name="categoryId" id="packagingCategorySelect" required>
+          <option value="">Select Category</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <div>
+        <label for="unitsToPackage">Units to Package:</label>
+        <input type="number" name="unitsToPackage" id="unitsToPackage" min="1" step="1" required>
+      </div>
+      <button type="submit">Package</button>
+    </form>
+
+    <div id="packaging-result"></div>
+  </section>
+
+  <!-- ===== Orders Management Module ===== -->
+  <section id="orders-management">
+    <h2>Orders Management</h2>
+    <form id="order-form">
+      <div>
+        <label for="customerName">Customer Name:</label>
+        <input type="text" name="customerName" id="orderCustomerName" required>
+      </div>
+      <div>
+        <label for="customerContact">Customer Contact:</label>
+        <input type="text" name="customerContact" id="orderCustomerContact" required>
+      </div>
+      <div>
+        <label for="shippingInfo">Shipping Information:</label>
+        <input type="text" name="shippingInfo" id="orderShippingInfo" required>
+      </div>
+      <div id="orderItems">
+        <h4>Order Items</h4>
+        <div class="order-item">
+          <label for="itemCategory">Category:</label>
+          <select name="itemCategory" class="orderItemCategory" required>
+            <option value="">Select Category</option>
+            <!-- Options populated via JavaScript -->
+          </select>
+          <label for="itemQuantity">Quantity:</label>
+          <input type="number" name="itemQuantity" class="orderItemQuantity" min="1" step="1" required>
+        </div>
+      </div>
+      <button type="button" id="add-order-item-btn">Add Another Item</button>
+      <button type="submit">Place Order</button>
+      <button type="reset">Reset</button>
+    </form>
+
+    <input type="text" id="order-search-customer" placeholder="Search Orders by Customer...">
+    <select id="order-filter-category">
+      <option value="">All Categories</option>
+      <!-- Options populated via JavaScript -->
     </select>
-    <input type="date" name="start">
-    <input type="date" name="end">
-    <button type="submit">Generate Summary</button>
-  </form>
-
-  <div id="purchase-summary-result"></div>
-</div>
-
-
-<div class="section">
-  <h2>1.3 Expense Calculation</h2>
-  <form id="expense-form">
-    <input type="date" name="start" required>
-    <input type="date" name="end" required>
-    <button type="submit">Calculate Expenses</button>
-  </form>
-  <div>
-    <strong>Total Expenses for Selected Period:</strong> $<span id="total-expenses">0.00</span>
-  </div>
-</div>
-
-<div class="section">
-  <h2>2.1 Product Categories & Pricing</h2>
-  <table id="categories-table">
-    <thead>
-      <tr>
-        <th>Category ID</th>
-        <th>Name</th>
-        <th>Weight</th>
-        <th>Price per Unit</th>
-        <th>--</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <form id="category-price-form">
-    <select name="categoryId" required></select>
-    <input type="number" step="0.01" name="newPrice" placeholder="New Price" required>
-    <button type="submit">Update Price</button>
-  </form>
-</div>
-
-<div class="section">
-  <h2>2.2 Inventory Tracking (By Package Category)</h2>
-  <table id="inventory-table">
-    <thead>
-      <tr>
-        <th>Category Name</th>
-        <th>Current Stock (units)</th>
-        <th>Reorder Threshold</th>
-        <th>--</th>
-        <th>--</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <form id="reorder-form">
-    <select name="categoryId" required></select>
-    <input type="number" name="newThreshold" placeholder="New Reorder Threshold" min="0" required>
-    <button type="submit">Update Threshold</button>
-  </form>
-
-  <form id="stock-form">
-    <select name="categoryId" required></select>
-    <input type="number" name="stockChange" placeholder="Stock Change (+/-)" required>
-    <button type="submit">Update Stock</button>
-  </form>
-</div>
-
-<div class="section">
-  <h2>2.3 Cost Calculation for Customers</h2>
-  <form id="cost-calculator-form">
-    <select name="categoryId" required></select>
-    <input type="number" name="quantity" placeholder="Quantity to Buy" min="1" required>
-    <button type="submit">Calculate Total Cost</button>
-  </form>
-  <div>
-    <strong>Total Cost:</strong> $<span id="calculated-cost">0.00</span>
-  </div>
-</div>
-
-<div class="section">
-  <h2>2.4 Packaging</h2>
-  <p>Convert raw blueberries from an Inventory Item into packaged units of a selected category.</p>
-  <form id="packaging-form">
-    <select name="inventoryItemId" required></select>
-    <select name="categoryId" required></select>
-    <input type="number" name="unitsToPackage" placeholder="Number of Units to Package" min="1" required>
-    <button type="submit">Package</button>
-  </form>
-  <div id="packaging-result"></div>
-</div>
-
-<div class="section">
-  <h2>3. Sales Management</h2>
-  <h3>Order Management</h3>
-  <form id="order-form">
-    <input type="text" name="customerName" placeholder="Customer Name" required>
-    <input type="text" name="customerContact" placeholder="Customer Contact" required>
-    <input type="text" name="shippingInfo" placeholder="Shipping Information" required>
-    <input type="date" name="orderDate" required>
-    <select name="categoryId" required></select>
-    <input type="number" name="quantity" placeholder="Quantity" min="1" required>
-    <select name="status" required>
+    <select id="order-filter-status">
+      <option value="">All Statuses</option>
       <option value="Pending">Pending</option>
       <option value="Processed">Processed</option>
       <option value="Shipped">Shipped</option>
       <option value="Delivered">Delivered</option>
     </select>
-    <button type="submit">Add Order</button>
-  </form>
+    <button id="filter-orders">Filter Orders</button>
 
-  <h4>Filter Orders</h4>
-  <input type="text" id="order-search-customer" placeholder="Search by Customer Name...">
-  <select id="order-filter-category">
-    <option value="">All Package Categories</option>
-  </select>
-  <select id="order-filter-status">
-    <option value="">All Statuses</option>
-    <option value="Pending">Pending</option>
-    <option value="Processed">Processed</option>
-    <option value="Shipped">Shipped</option>
-    <option value="Delivered">Delivered</option>
-  </select>
-  <button id="filter-orders">Filter Orders</button>
+    <table id="orders-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Customer Name</th>
+          <th>Contact</th>
+          <th>Shipping Info</th>
+          <th>Items</th>
+          <th>Total Cost ($)</th>
+          <th>Status</th>
+          <th>Update Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Orders will be dynamically populated here -->
+      </tbody>
+    </table>
+  </section>
 
-  <table id="orders-table">
-    <thead>
-      <tr>
-        <th>Order ID</th>
-        <th>Customer</th>
-        <th>Contact</th>
-        <th>Shipping Info</th>
-        <th>Category</th>
-        <th>Quantity</th>
-        <th>Total Price</th>
-        <th>Status</th>
-        <th>Update Status</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- ===== Sales Report Module ===== -->
+  <section id="sales-report">
+    <h2>Sales Report</h2>
+    <button id="generate-sales-report">Generate Sales Report</button>
+    <button id="export-sales-report" style="display:none;">Export Sales Report as CSV</button>
+    <div id="sales-report"></div>
+  </section>
 
-  <h3>Sales Reports</h3>
-  <button id="generate-sales-report">Generate Sales Report</button>
-  <div id="sales-report"></div>
-  <button id="export-sales-report">Export Sales Report (CSV)</button>
-</div>
+  <!-- ===== Financial Analysis Module ===== -->
+  <section id="financial-analysis">
+    <h2>Financial Analysis</h2>
+    <form id="financial-form">
+      <div>
+        <label for="start">Start Date:</label>
+        <input type="date" name="start" id="financialStart" required>
+      </div>
+      <div>
+        <label for="end">End Date:</label>
+        <input type="date" name="end" id="financialEnd" required>
+      </div>
+      <div>
+        <label for="taxRateId">Select Tax Rate:</label>
+        <select name="taxRateId" id="financialTaxRateSelect" required>
+          <option value="">Select Tax Rate</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <button type="submit">Calculate Financials</button>
+    </form>
 
-<div class="section">
-  <h2>4. Financial Analysis</h2>
-  <form id="financial-form">
-    <input type="date" name="start" required>
-    <input type="date" name="end" required>
-    <input type="number" step="0.01" name="taxRate" placeholder="Tax Rate (e.g., 0.15)" required>
-    <button type="submit">Calculate Financial Analysis</button>
-  </form>
-  <div>
-    <strong>Income (Sales):</strong> $<span id="financial-income">0.00</span><br>
-    <strong>Expenses (Purchases):</strong> $<span id="financial-expenses">0.00</span><br>
-    <strong>Tax Amount:</strong> $<span id="financial-tax">0.00</span><br>
-    <strong>Net Profit:</strong> $<span id="financial-net-profit">0.00</span>
-    <p><em>Tax is applied to income, ensuring compliance with financial reporting standards.</em></p>
-  </div>
-</div>
+    <div id="financial-results">
+      <p><strong>Total Income:</strong> $<span id="financial-income">0.00</span></p>
+      <p><strong>Total Expenses:</strong> $<span id="financial-expenses">0.00</span></p>
+      <p><strong>Tax:</strong> $<span id="financial-tax">0.00</span></p>
+      <p><strong>Net Profit:</strong> $<span id="financial-net-profit">0.00</span></p>
+    </div>
+  </section>
 
-<div class="section">
-  <h2>5. Inventory Management Module (Raw Items)</h2>
-  <form id="inventory-item-form">
-    <input type="hidden" name="id">
-    <input type="text" name="category" placeholder="e.g. Fresh, Frozen, Organic" required>
-    <input type="number" name="quantityAvailable" placeholder="Quantity Available (kg)" min="0" required>
-    <input type="number" name="reorderLevel" placeholder="Reorder Level" min="0" required>
-    <input type="date" name="restockDate" placeholder="Restock Date">
-    <input type="text" name="storageLocation" placeholder="Storage Location (e.g. Warehouse A)">
-    <button type="submit">Add/Update Inventory Item</button>
-  </form>
+  <!-- ===== Comprehensive Report Module ===== -->
+  <section id="comprehensive-report">
+    <h2>Comprehensive Report</h2>
+    <form id="comprehensive-report-form">
+      <div>
+        <label for="compStart">Start Date:</label>
+        <input type="date" name="start" id="compStart" required>
+      </div>
+      <div>
+        <label for="compEnd">End Date:</label>
+        <input type="date" name="end" id="compEnd" required>
+      </div>
+      <div>
+        <label for="compTaxRateId">Select Tax Rate:</label>
+        <select name="taxRateId" id="compTaxRateSelect" required>
+          <option value="">Select Tax Rate</option>
+          <!-- Options populated via JavaScript -->
+        </select>
+      </div>
+      <button type="submit">Generate Comprehensive Report</button>
+    </form>
 
-  <table id="inventory-items-table">
-    <thead>
-      <tr>
-        <th>Item ID</th>
-        <th>Category</th>
-        <th>Quantity Available (kg)</th>
-        <th>Reorder Level</th>
-        <th>Restock Date</th>
-        <th>Storage Location</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <button id="export-comprehensive-report" style="display:none;">Export Comprehensive Report as CSV</button>
+    <div id="comprehensive-report-result"></div>
+  </section>
 
-  <h4>Demand Forecasting</h4>
-  <p>Analyzes recent orders to predict future demand.</p>
-  <button id="demand-forecasting-btn">Generate Demand Forecast</button>
-  <div id="demand-forecasting-result"></div>
-
-  <h4>Inventory Reporting</h4>
-  <select id="inventory-report-period">
-    <option value="daily">Daily</option>
-    <option value="weekly">Weekly</option>
-    <option value="monthly">Monthly</option>
-  </select>
-  <button id="generate-inventory-report">Generate Inventory Report</button>
-  <div id="inventory-report"></div>
-</div>
-
-<div class="section">
-  <h2>6. Comprehensive Reporting</h2>
-  <form id="comprehensive-report-form">
-    <input type="date" name="start" required>
-    <input type="date" name="end" required>
-    <input type="number" step="0.01" name="taxRate" placeholder="Tax Rate (e.g., 0.15)" required>
-    <button type="submit">Generate Comprehensive Report</button>
-  </form>
-
-  <div id="comprehensive-report-result"></div>
-  <button id="export-comprehensive-report" style="display:none;">Export Report (CSV)</button>
-</div>
-
-</main>
+  <!-- ===== Scripts ===== -->
 
 </body>
 </html>

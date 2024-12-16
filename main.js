@@ -1,6 +1,6 @@
 // ===== CLASSES =====
 
-// Farmer class with phone, email, address, region, gps
+// Farmer Class
 class Farmer {
   constructor(id, name, phone, email, address, region, gpsCoordinates) {
     this.id = id;
@@ -13,34 +13,37 @@ class Farmer {
   }
 }
 
+// FarmersManager Class
 class FarmersManager {
   constructor() {
     this.load();
   }
+
   load() {
     const data = localStorage.getItem('farmers');
     this.farmers = data ? JSON.parse(data) : [];
   }
+
   save() {
     localStorage.setItem('farmers', JSON.stringify(this.farmers));
   }
 
   addFarmer(name, phone, email, address, region, gpsCoordinates) {
-    const farmer = new Farmer(Date.now(), name, phone, email, address, region, gpsCoordinates);
+    const id = Date.now();
+    const farmer = new Farmer(id, name, phone, email, address, region, gpsCoordinates);
     this.farmers.push(farmer);
     this.save();
-    return farmer;
   }
 
   updateFarmer(id, name, phone, email, address, region, gpsCoordinates) {
-    const idx = this.farmers.findIndex(f => f.id == id);
-    if (idx > -1) {
-      this.farmers[idx].name = name;
-      this.farmers[idx].phone = phone;
-      this.farmers[idx].email = email;
-      this.farmers[idx].address = address;
-      this.farmers[idx].region = region;
-      this.farmers[idx].gpsCoordinates = gpsCoordinates;
+    const farmer = this.farmers.find(f => f.id == id);
+    if (farmer) {
+      farmer.name = name;
+      farmer.phone = phone;
+      farmer.email = email;
+      farmer.address = address;
+      farmer.region = region;
+      farmer.gpsCoordinates = gpsCoordinates;
       this.save();
     }
   }
@@ -50,32 +53,16 @@ class FarmersManager {
     this.save();
   }
 
-  search(query) {
-    const lower = query.toLowerCase();
-    return this.farmers.filter(f =>
-      f.name.toLowerCase().includes(lower) ||
-      f.region.toLowerCase().includes(lower)
-    );
-  }
-
   getAll() {
     return this.farmers;
   }
+
+  search(query) {
+    return this.farmers.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+  }
 }
 
-function validateFarmerInputs(name, phone, email, address, region, gps) {
-  if (!name.trim()) return "Name is required.";
-  const phoneRegex = /^[0-9]{5,15}$/;
-  if (!phoneRegex.test(phone)) return "Phone must be digits only (5-15 chars).";
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) return "Invalid email format.";
-  if (!address.trim()) return "Address is required.";
-  if (!region.trim()) return "Region is required.";
-  if (!gps.trim()) return "GPS Coordinates are required.";
-  return null;
-}
-
-// Purchase class without inventory item link
+// Purchase Class
 class Purchase {
   constructor(id, farmerId, date, quantity, pricePerKg) {
     this.id = id;
@@ -87,6 +74,7 @@ class Purchase {
   }
 }
 
+// PurchasesManager Class
 class PurchasesManager {
   constructor() {
     this.load();
@@ -102,10 +90,10 @@ class PurchasesManager {
   }
 
   addPurchase(farmerId, date, quantity, pricePerKg) {
-    const purchase = new Purchase(Date.now(), Number(farmerId), date, Number(quantity), Number(pricePerKg));
+    const id = Date.now();
+    const purchase = new Purchase(id, farmerId, date, quantity, pricePerKg);
     this.purchases.push(purchase);
     this.save();
-    return purchase;
   }
 
   getAll() {
@@ -113,169 +101,162 @@ class PurchasesManager {
   }
 
   sortByField(field, farmers) {
-    if (field === 'date') {
-      this.purchases.sort((a, b) => new Date(a.date) - new Date(b.date));
-    } else if (field === 'amount') {
-      this.purchases.sort((a, b) => a.totalCost - b.totalCost);
-    } else if (field === 'farmer') {
-      this.purchases.sort((a, b) => {
-        const fA = farmers.find(f => f.id === a.farmerId)?.name || '';
-        const fB = farmers.find(f => f.id === b.farmerId)?.name || '';
-        return fA.localeCompare(fB);
-      });
-    }
+    this.purchases.sort((a, b) => {
+      if (field === 'date') {
+        return new Date(a.date) - new Date(b.date);
+      } else if (field === 'totalCost') {
+        return a.totalCost - b.totalCost;
+      }
+      return 0;
+    });
+    this.save();
   }
 
   generateSummary(filter) {
-    const { farmerId, start, end } = filter;
-    const startDate = start ? new Date(start) : null;
-    const endDate = end ? new Date(end) : null;
-
     let filtered = this.purchases;
-
-    if (farmerId) {
-      filtered = filtered.filter(p => p.farmerId === farmerId);
+    if (filter.farmerId) {
+      filtered = filtered.filter(p => p.farmerId == filter.farmerId);
     }
-
-    if (startDate && endDate) {
-      filtered = filtered.filter(p => {
-        const pDate = new Date(p.date);
-        return pDate >= startDate && pDate <= endDate;
-      });
-    } else if (startDate && !endDate) {
+    if (filter.start) {
+      const startDate = new Date(filter.start);
       filtered = filtered.filter(p => new Date(p.date) >= startDate);
-    } else if (!startDate && endDate) {
+    }
+    if (filter.end) {
+      const endDate = new Date(filter.end);
       filtered = filtered.filter(p => new Date(p.date) <= endDate);
     }
 
-    let totalQuantity = 0;
-    let totalCost = 0;
-    filtered.forEach(p => {
-      totalQuantity += p.quantity;
-      totalCost += p.totalCost;
-    });
-
-    return {
+    const summary = {
       count: filtered.length,
-      totalQuantity,
-      totalCost
+      totalQuantity: filtered.reduce((acc, p) => acc + p.quantity, 0),
+      totalCost: filtered.reduce((acc, p) => acc + p.totalCost, 0)
     };
+
+    return summary;
   }
 }
 
+// ExpenseCalculator Class
 class ExpenseCalculator {
   constructor(purchases) {
     this.purchases = purchases;
   }
-  calculate(startDate, endDate) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    let total = 0;
-    this.purchases.forEach(p => {
-      const pDate = new Date(p.date);
-      if (pDate >= start && pDate <= end) {
-        total += p.totalCost;
-      }
-    });
-    return total;
+
+  calculate(start, end) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const totalExpenses = this.purchases
+      .filter(p => {
+        const pDate = new Date(p.date);
+        return pDate >= startDate && pDate <= endDate;
+      })
+      .reduce((acc, p) => acc + p.totalCost, 0);
+    return totalExpenses;
   }
 }
 
+// Category Class
 class Category {
-  constructor(id, name, weight, price, reorderThreshold = 10, stock = 0) {
+  constructor(id, name, weight, price, stock = 0, reorderThreshold = 10) {
     this.id = id;
     this.name = name;
     this.weight = weight;
     this.price = price;
-    this.reorderThreshold = reorderThreshold;
     this.stock = stock;
+    this.reorderThreshold = reorderThreshold;
   }
 }
 
+// CategoriesManager Class
 class CategoriesManager {
   constructor() {
     this.load();
   }
+
   load() {
-    let data = localStorage.getItem('categories');
-    if (!data) {
-      const defaultCategories = [
-        new Category(1, "Small", "100g", 5.00, 10, 50),
-        new Category(2, "Medium", "250g", 10.00, 10, 30),
-        new Category(3, "Large", "500g", 18.00, 10, 20),
-        new Category(4, "Extra Large", "1kg", 30.00, 5, 10),
-        new Category(5, "Family Pack", "2kg", 50.00, 5, 5),
-        new Category(6, "Bulk Pack", "5kg", 100.00, 2, 2),
-        new Category(7, "Premium", "Custom", 0.00, 5, 0)
-      ];
-      this.categories = defaultCategories;
-      this.save();
-    } else {
-      this.categories = JSON.parse(data);
-    }
+    const data = localStorage.getItem('categories');
+    this.categories = data ? JSON.parse(data) : [
+      new Category(1, 'Small', '500g', 5),
+      new Category(2, 'Medium', '1kg', 10),
+      new Category(3, 'Large', '2kg', 18)
+    ];
   }
+
   save() {
     localStorage.setItem('categories', JSON.stringify(this.categories));
   }
-  updatePrice(id, newPrice) {
-    const cat = this.categories.find(c => c.id == id);
-    if (cat) {
-      cat.price = Number(newPrice);
-      this.save();
-    }
-  }
-  updateThreshold(id, newThreshold) {
-    const cat = this.categories.find(c => c.id == id);
-    if (cat) {
-      cat.reorderThreshold = Number(newThreshold);
-      this.save();
-    }
-  }
-  updateStock(id, change) {
-    const cat = this.categories.find(c => c.id == id);
-    if (cat) {
-      cat.stock = cat.stock + Number(change);
-      if (cat.stock < 0) cat.stock = 0;
-      this.save();
-    }
-  }
+
   getAll() {
     return this.categories;
   }
-}
 
-class Order {
-  constructor(id, orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status) {
-    this.id = id;
-    this.orderDate = orderDate;
-    this.customerName = customerName;
-    this.customerContact = customerContact;
-    this.shippingInfo = shippingInfo;
-    this.categoryId = categoryId;
-    this.quantity = quantity;
-    this.unitPrice = unitPrice;
-    this.totalPrice = this.unitPrice * this.quantity;
-    this.status = status;
+  updatePrice(id, newPrice) {
+    const category = this.categories.find(c => c.id == id);
+    if (category) {
+      category.price = newPrice;
+      this.save();
+    }
+  }
+
+  updateStock(id, quantity) {
+    const category = this.categories.find(c => c.id == id);
+    if (category) {
+      category.stock += quantity;
+      this.save();
+    }
   }
 }
 
+// OrderItem Class
+class OrderItem {
+  constructor(categoryId, quantity, unitPrice) {
+    this.categoryId = categoryId;
+    this.quantity = quantity;
+    this.unitPrice = unitPrice;
+    this.totalPrice = quantity * unitPrice;
+  }
+}
+
+// Order Class
+class Order {
+  constructor(id, customerName, customerContact, shippingInfo, items) {
+    this.id = id;
+    this.customerName = customerName;
+    this.customerContact = customerContact;
+    this.shippingInfo = shippingInfo;
+    this.items = items; // Array of OrderItem
+    this.totalCost = items.reduce((acc, item) => acc + item.totalPrice, 0);
+    this.status = 'Pending';
+    this.orderDate = new Date().toISOString().split('T')[0];
+  }
+}
+
+// OrdersManager Class
 class OrdersManager {
   constructor() {
     this.load();
   }
+
   load() {
     const data = localStorage.getItem('orders');
     this.orders = data ? JSON.parse(data) : [];
   }
+
   save() {
     localStorage.setItem('orders', JSON.stringify(this.orders));
   }
-  addOrder(orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status) {
-    const order = new Order(Date.now(), orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status);
+
+  addOrder(customerName, customerContact, shippingInfo, items) {
+    const id = Date.now();
+    const order = new Order(id, customerName, customerContact, shippingInfo, items);
     this.orders.push(order);
     this.save();
-    return order;
   }
+
+  getAll() {
+    return this.orders;
+  }
+
   updateOrderStatus(id, newStatus) {
     const order = this.orders.find(o => o.id == id);
     if (order) {
@@ -283,40 +264,43 @@ class OrdersManager {
       this.save();
     }
   }
-  filterOrders({customerName = '', categoryId = '', status = ''}, categories) {
-    const cname = customerName.toLowerCase();
+
+  filterOrders(filters, categories) {
     return this.orders.filter(o => {
-      let match = true;
-      if (cname && !o.customerName.toLowerCase().includes(cname)) match = false;
-      if (categoryId && o.categoryId != categoryId) match = false;
-      if (status && o.status != status) match = false;
-      return match;
+      const matchesCustomer = filters.customerName ? o.customerName.toLowerCase().includes(filters.customerName.toLowerCase()) : true;
+      const matchesStatus = filters.status ? o.status === filters.status : true;
+      const matchesCategory = filters.categoryId ? o.items.some(item => item.categoryId == filters.categoryId) : true;
+      return matchesCustomer && matchesStatus && matchesCategory;
     });
   }
-  getAll() { return this.orders; }
+
   generateSalesReport(categories) {
     const report = {
-      perCategory: {},
+      totalUnits: 0,
       totalRevenue: 0,
-      totalUnits: 0
+      perCategory: {}
     };
-    categories.forEach(cat => {
-      report.perCategory[cat.id] = {name: cat.name, units: 0, revenue: 0};
+
+    categories.forEach(c => {
+      report.perCategory[c.id] = { name: c.name, units: 0, revenue: 0 };
     });
 
     this.orders.forEach(o => {
-      const catReport = report.perCategory[o.categoryId];
-      if (catReport) {
-        catReport.units += o.quantity;
-        catReport.revenue += o.totalPrice;
-        report.totalRevenue += o.totalPrice;
-        report.totalUnits += o.quantity;
-      }
+      o.items.forEach(item => {
+        report.totalUnits += item.quantity;
+        report.totalRevenue += item.totalPrice;
+        if (report.perCategory[item.categoryId]) {
+          report.perCategory[item.categoryId].units += item.quantity;
+          report.perCategory[item.categoryId].revenue += item.totalPrice;
+        }
+      });
     });
+
     return report;
   }
 }
 
+// InventoryItem Class
 class InventoryItem {
   constructor(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation) {
     this.id = id;
@@ -328,77 +312,122 @@ class InventoryItem {
   }
 }
 
+// InventoryManager Class
 class InventoryManager {
   constructor() {
     this.load();
   }
+
   load() {
-    const data = localStorage.getItem('inventoryItems');
-    this.inventoryItems = data ? JSON.parse(data) : [];
+    const data = localStorage.getItem('inventory');
+    this.inventory = data ? JSON.parse(data) : [];
   }
+
   save() {
-    localStorage.setItem('inventoryItems', JSON.stringify(this.inventoryItems));
+    localStorage.setItem('inventory', JSON.stringify(this.inventory));
   }
+
   addOrUpdateItem(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation) {
     if (id) {
-      const item = this.inventoryItems.find(i => i.id == id);
+      const item = this.inventory.find(i => i.id == id);
       if (item) {
         item.category = category;
-        item.quantityAvailable = Number(quantityAvailable);
-        item.reorderLevel = Number(reorderLevel);
+        item.quantityAvailable = parseFloat(quantityAvailable);
+        item.reorderLevel = parseInt(reorderLevel, 10);
         item.restockDate = restockDate;
         item.storageLocation = storageLocation;
+        this.save();
       }
     } else {
-      const newItem = new InventoryItem(Date.now(), category, Number(quantityAvailable), Number(reorderLevel), restockDate, storageLocation);
-      this.inventoryItems.push(newItem);
-    }
-    this.save();
-  }
-  deleteItem(id) {
-    this.inventoryItems = this.inventoryItems.filter(i => i.id != id);
-    this.save();
-  }
-  updateStock(id, change) {
-    const item = this.inventoryItems.find(i => i.id == id);
-    if (item) {
-      item.quantityAvailable = Math.max(0, item.quantityAvailable + Number(change));
+      const newId = Date.now();
+      const newItem = new InventoryItem(newId, category, parseFloat(quantityAvailable), parseInt(reorderLevel, 10), restockDate, storageLocation);
+      this.inventory.push(newItem);
       this.save();
     }
   }
+
+  deleteItem(id) {
+    this.inventory = this.inventory.filter(i => i.id != id);
+    this.save();
+  }
+
   getAll() {
-    return this.inventoryItems;
+    return this.inventory;
   }
-  itemsNeedingReorder() {
-    return this.inventoryItems.filter(i => i.quantityAvailable < i.reorderLevel);
-  }
+
   demandForecast(ordersManager) {
-    const allOrders = ordersManager.getAll();
-    const last5 = allOrders.slice(-5);
-    const prev5 = allOrders.slice(-10, -5);
-    const last5Sum = last5.reduce((sum, o) => sum + o.quantity, 0);
-    const prev5Sum = prev5.reduce((sum, o) => sum + o.quantity, 0);
+    // Simple demand forecast based on past orders
+    const orders = ordersManager.getAll();
+    const demand = {};
 
-    let message = "Demand is stable.";
-    if (prev5Sum !== 0) {
-      if (last5Sum > prev5Sum) {
-        message = "Demand is increasing. Consider increasing reorder levels.";
-      } else if (last5Sum < prev5Sum) {
-        message = "Demand is decreasing. You might reduce stock levels.";
-      }
-    }
+    orders.forEach(o => {
+      o.items.forEach(item => {
+        if (!demand[item.categoryId]) {
+          demand[item.categoryId] = 0;
+        }
+        demand[item.categoryId] += item.quantity;
+      });
+    });
 
-    const needsReorder = this.itemsNeedingReorder();
-    if (needsReorder.length > 0) {
-      message += "<br>Items below reorder level: " + needsReorder.map(i=>i.category).join(", ") + ". Consider reordering.";
+    let message = "<h4>Demand Forecast</h4><ul>";
+    for (let catId in demand) {
+      message += `<li>Category ID ${catId}: Estimated Demand ${demand[catId]} units</li>`;
     }
+    message += "</ul>";
     return message;
   }
+
   generateInventoryReport(period) {
-    const all = this.getAll();
-    const totalStock = all.reduce((sum, i) => sum + i.quantityAvailable, 0);
-    const needingReorder = this.itemsNeedingReorder().length;
-    return `For the selected ${period} period: Total Stock: ${totalStock} kg. Items below reorder: ${needingReorder}.`;
+    // Placeholder for inventory report generation based on the period
+    return `<p>Inventory report for the period: ${period}</p>`;
+  }
+}
+
+// TaxRateManager Class
+class TaxRateManager {
+  constructor() {
+    this.load();
+  }
+
+  load() {
+    const data = localStorage.getItem('taxRates');
+    this.taxRates = data ? JSON.parse(data) : [{ id: 1, name: 'Standard Tax', rate: 0.15 }]; // Default 15%
+  }
+
+  save() {
+    localStorage.setItem('taxRates', JSON.stringify(this.taxRates));
+  }
+
+  getAll() {
+    return this.taxRates;
+  }
+
+  addTaxRate(name, rate) {
+    const id = Date.now();
+    this.taxRates.push({ id, name, rate });
+    this.save();
+    return id;
+  }
+
+  updateTaxRate(id, name, rate) {
+    const taxRate = this.taxRates.find(t => t.id == id);
+    if (taxRate) {
+      taxRate.name = name;
+      taxRate.rate = rate;
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  deleteTaxRate(id) {
+    this.taxRates = this.taxRates.filter(t => t.id != id);
+    this.save();
+  }
+
+  getTaxRate(id) {
+    const taxRate = this.taxRates.find(t => t.id == id);
+    return taxRate ? taxRate.rate : 0;
   }
 }
 
@@ -408,7 +437,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const categoriesManager = new CategoriesManager();
   const ordersManager = new OrdersManager();
   const inventoryManager = new InventoryManager();
+  const taxRateManager = new TaxRateManager(); // Initialize TaxRateManager
 
+  // Elements referencing from HTML
   const farmerForm = document.getElementById('farmer-form');
   const farmersTableBody = document.querySelector('#farmers-table tbody');
   const farmerSearch = document.getElementById('farmer-search');
@@ -424,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const categoriesTableBody = document.querySelector('#categories-table tbody');
   const categoryPriceForm = document.getElementById('category-price-form');
-  const inventoryTableBody = document.querySelector('#inventory-table tbody');
+  const inventoryTableBody = document.querySelector('#inventory-items-table tbody');
   const reorderForm = document.getElementById('reorder-form');
   const stockForm = document.getElementById('stock-form');
   const costCalcForm = document.getElementById('cost-calculator-form');
@@ -469,8 +500,54 @@ document.addEventListener('DOMContentLoaded', () => {
   const purchaseSummaryForm = document.getElementById('purchase-summary-form');
   const purchaseSummaryResult = document.getElementById('purchase-summary-result');
 
-  // RENDER FUNCTIONS & EVENT HANDLERS
+  // Tax Rate Elements
+  const taxRateForm = document.getElementById('tax-rate-form');
+  const taxRatesTableBody = document.querySelector('#tax-rates-table tbody');
+  const addTaxRateBtn = document.getElementById('add-tax-rate-btn');
 
+  // Inventory Alert Elements
+  const inventoryAlertsDiv = document.getElementById('inventory-alerts'); // Already in HTML
+
+  // ===== HELPER FUNCTIONS =====
+
+  // Validate Farmer Inputs
+  function validateFarmerInputs(name, phone, email, address, region, gps) {
+    if (!name || !phone || !email || !address || !region || !gps) {
+      return "All fields are required.";
+    }
+    // Add more validations as needed (e.g., email format)
+    return null;
+  }
+
+  // Populate Order Items (Dynamic Fields)
+  const addOrderItemBtn = document.getElementById('add-order-item-btn');
+  const orderItemsDiv = document.getElementById('orderItems');
+
+  addOrderItemBtn.addEventListener('click', () => {
+    const newItemDiv = document.createElement('div');
+    newItemDiv.classList.add('order-item');
+    newItemDiv.innerHTML = `
+      <label for="itemCategory">Category:</label>
+      <select name="itemCategory" class="orderItemCategory" required>
+        <option value="">Select Category</option>
+        <!-- Options populated via JavaScript -->
+      </select>
+      <label for="itemQuantity">Quantity:</label>
+      <input type="number" name="itemQuantity" class="orderItemQuantity" min="1" step="1" required>
+      <button type="button" class="remove-order-item-btn">Remove</button>
+    `;
+    orderItemsDiv.appendChild(newItemDiv);
+  });
+
+  orderItemsDiv.addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove-order-item-btn')) {
+      e.target.parentElement.remove();
+    }
+  });
+
+  // ===== RENDER FUNCTIONS =====
+
+  // Render Farmers
   function renderFarmers(farmers) {
     farmersTableBody.innerHTML = '';
     farmers.forEach(f => {
@@ -497,6 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFarmers(farmers);
   }
 
+  // Render Purchases
   function renderPurchases() {
     const farmers = farmersManager.getAll();
     const purchases = purchasesManager.getAll();
@@ -517,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Summaries for purchases
+  // Render Purchase Summary
   purchaseSummaryForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(purchaseSummaryForm);
@@ -538,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
     purchaseSummaryResult.innerHTML = html;
   });
 
-  // Populate farmer selects for purchases and summaries
+  // Populate Farmer Selects
   function populateFarmerSelects() {
     const farmers = farmersManager.getAll();
     // Purchase Form farmer select
@@ -561,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Farmer form submit
+  // Farmer Form Submission
   farmerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(farmerForm);
@@ -590,12 +668,15 @@ document.addEventListener('DOMContentLoaded', () => {
     populateFarmerSelects(); // Update farmer selects after adding/updating
   });
 
+  // Farmers Table Actions (Edit/Delete)
   farmersTableBody.addEventListener('click', (e) => {
     if (e.target.classList.contains('delete-farmer')) {
       const id = e.target.dataset.id;
-      farmersManager.deleteFarmer(id);
-      loadFarmers(farmerSearch.value);
-      populateFarmerSelects();
+      if (confirm("Are you sure you want to delete this farmer?")) {
+        farmersManager.deleteFarmer(id);
+        loadFarmers(farmerSearch.value);
+        populateFarmerSelects();
+      }
     } else if (e.target.classList.contains('edit-farmer')) {
       const id = e.target.dataset.id;
       const farmer = farmersManager.getAll().find(f => f.id == id);
@@ -611,10 +692,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Farmer Search
   farmerSearch.addEventListener('input', () => {
     loadFarmers(farmerSearch.value);
   });
 
+  // Export Farmers as CSV
   exportFarmersBtn.addEventListener('click', () => {
     const farmers = farmersManager.getAll();
     let csv = "FarmerID,Name,Phone,Email,Address,Region,GPS\n";
@@ -629,55 +712,6 @@ document.addEventListener('DOMContentLoaded', () => {
     a.click();
     URL.revokeObjectURL(url);
   });
-
-  // Purchase form submit
-  purchaseForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(purchaseForm);
-    const farmerId = formData.get('farmerId');
-    const date = formData.get('date');
-    const quantity = formData.get('quantity');
-    const pricePerKg = formData.get('pricePerKg');
-
-    if (!farmerId) {
-      alert("Please select a farmer before adding a purchase.");
-      return;
-    }
-
-    // Ensure at least one farmer is present
-    if (farmersManager.getAll().length === 0) {
-      alert("No farmers available. Please add a farmer first.");
-      return;
-    }
-
-    purchasesManager.addPurchase(farmerId, date, quantity, pricePerKg);
-    purchaseForm.reset();
-    renderPurchases();
-  });
-
-  // Purchase Sorting
-  sortButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sortField = btn.dataset.sort;
-      purchasesManager.sortByField(sortField, farmersManager.getAll());
-      renderPurchases();
-    });
-  });
-
-  // Expense form submit
-  expenseForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(expenseForm);
-    const start = formData.get('start');
-    const end = formData.get('end');
-    calculateExpenses(start, end);
-  });
-
-  function calculateExpenses(start, end) {
-    const calculator = new ExpenseCalculator(purchasesManager.getAll());
-    const total = calculator.calculate(start, end);
-    totalExpensesEl.textContent = total.toFixed(2);
-  }
 
   // Render Categories
   function renderCategories() {
@@ -703,163 +737,145 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render Inventory
-  function renderInventory() {
-    const categories = categoriesManager.getAll();
-    inventoryTableBody.innerHTML = '';
-    categorySelectForThreshold.innerHTML = '<option value="">Select Category</option>';
-    categorySelectForStock.innerHTML = '<option value="">Select Category</option>';
-    categorySelectForCalc.innerHTML = '<option value="">Select Category</option>';
-    orderFilterCategory.innerHTML = '<option value="">All Package Categories</option>';
+  // Categories Form Submission (Update Price)
+  categoryPriceForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(categoryPriceForm);
+    const categoryId = formData.get('categoryId');
+    const newPrice = parseFloat(formData.get('price'));
 
-    categories.forEach(cat => {
-      const tr = document.createElement('tr');
-      tr.classList.toggle('low-stock', cat.stock < cat.reorderThreshold);
-      tr.innerHTML = `
-        <td>${cat.name}</td>
-        <td>${cat.stock}</td>
-        <td>${cat.reorderThreshold}</td>
-        <td></td>
-        <td></td>
-      `;
-      inventoryTableBody.appendChild(tr);
+    if (isNaN(newPrice) || newPrice < 0) {
+      alert("Please enter a valid non-negative price.");
+      return;
+    }
 
-      let opt1 = document.createElement('option');
-      opt1.value = cat.id;
-      opt1.textContent = cat.name;
-      categorySelectForThreshold.appendChild(opt1);
+    categoriesManager.updatePrice(categoryId, newPrice);
+    categoryPriceForm.reset();
+    renderCategories();
+    renderInventoryItems(); // Update inventory display if prices affect it
+  });
 
-      let opt2 = document.createElement('option');
-      opt2.value = cat.id;
-      opt2.textContent = cat.name;
-      categorySelectForStock.appendChild(opt2);
+  // ===== Tax Rate Management =====
 
-      let opt3 = document.createElement('option');
-      opt3.value = cat.id;
-      opt3.textContent = cat.name;
-      categorySelectForCalc.appendChild(opt3);
-
-      let opt4 = document.createElement('option');
-      opt4.value = cat.id;
-      opt4.textContent = cat.name;
-      orderFilterCategory.appendChild(opt4);
-    });
-  }
-
-  // Render Orders
-  function renderOrders(orders) {
-    const categories = categoriesManager.getAll();
-    ordersTableBody.innerHTML = '';
-    orders.forEach(o => {
-      const cat = categories.find(c => c.id == o.categoryId);
-      const categoryName = cat ? cat.name : 'Unknown';
+  // Render Tax Rates
+  function renderTaxRates() {
+    const taxRates = taxRateManager.getAll();
+    taxRatesTableBody.innerHTML = '';
+    taxRates.forEach(t => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${o.id}</td>
-        <td>${o.customerName}</td>
-        <td>${o.customerContact}</td>
-        <td>${o.shippingInfo}</td>
-        <td>${categoryName}</td>
-        <td>${o.quantity}</td>
-        <td>$${o.totalPrice.toFixed(2)}</td>
-        <td>${o.status}</td>
+        <td>${t.id}</td>
+        <td>${t.name}</td>
+        <td>${(t.rate * 100).toFixed(2)}%</td>
         <td>
-          <select class="update-order-status" data-id="${o.id}">
-            <option value="Pending" ${o.status==="Pending"?"selected":""}>Pending</option>
-            <option value="Processed" ${o.status==="Processed"?"selected":""}>Processed</option>
-            <option value="Shipped" ${o.status==="Shipped"?"selected":""}>Shipped</option>
-            <option value="Delivered" ${o.status==="Delivered"?"selected":""}>Delivered</option>
-          </select>
+          <button class="edit-tax-rate" data-id="${t.id}">Edit</button>
+          <button class="delete-tax-rate" data-id="${t.id}">Delete</button>
         </td>
       `;
-      ordersTableBody.appendChild(tr);
+      taxRatesTableBody.appendChild(tr);
     });
   }
 
-  function filterAndRenderOrders() {
-    const filters = {
-      customerName: orderSearchCustomer.value,
-      categoryId: orderFilterCategory.value,
-      status: orderFilterStatus.value
-    };
-    const filtered = ordersManager.filterOrders(filters, categoriesManager.getAll());
-    renderOrders(filtered);
-  }
+  // Tax Rate Form Submission (Add)
+  taxRateForm.addEventListener('submit', (e) => {
+    if (e.submitter.id === 'add-tax-rate-btn') {
+      e.preventDefault();
+      const formData = new FormData(taxRateForm);
+      const name = formData.get('taxRateName');
+      const rate = parseFloat(formData.get('taxRateValue')) / 100;
 
-  function generateSalesReport() {
-    const categories = categoriesManager.getAll();
-    const report = ordersManager.generateSalesReport(categories);
-
-    let html = `<h4>Sales Report</h4>`;
-    html += `<p>Total Units Sold: ${report.totalUnits}</p>`;
-    html += `<p>Total Revenue: $${report.totalRevenue.toFixed(2)}</p>`;
-    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Units Sold</th><th>Revenue</th></tr>`;
-    for (let catId in report.perCategory) {
-      const c = report.perCategory[catId];
-      html += `<tr><td>${c.name}</td><td>${c.units}</td><td>$${c.revenue.toFixed(2)}</td></tr>`;
-    }
-    html += `</table>`;
-    salesReportDiv.innerHTML = html;
-    return report;
-  }
-
-  function exportSalesReportCSV(report) {
-    let csv = "Category,Units Sold,Revenue\n";
-    for (let catId in report.perCategory) {
-      const c = report.perCategory[catId];
-      csv += `${c.name},${c.units},${c.revenue.toFixed(2)}\n`;
-    }
-    csv += `\nTotal Units Sold,${report.totalUnits},\n`;
-    csv += `Total Revenue,${report.totalRevenue.toFixed(2)},\n`;
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "sales_report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function calculateFinancialAnalysis(startDate, endDate, taxRate) {
-    const orders = ordersManager.getAll();
-    const purchases = purchasesManager.getAll();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    let income = 0;
-    orders.forEach(o => {
-      const oDate = new Date(o.orderDate);
-      if (oDate >= start && oDate <= end) {
-        income += o.totalPrice;
+      if (!name || isNaN(rate) || rate < 0) {
+        alert("Please provide a valid tax rate name and a non-negative rate.");
+        return;
       }
-    });
 
-    let expenses = 0;
-    purchases.forEach(p => {
-      const pDate = new Date(p.date);
-      if (pDate >= start && pDate <= end) {
-        expenses += p.totalCost;
+      taxRateManager.addTaxRate(name, rate);
+      taxRateForm.reset();
+      renderTaxRates();
+      renderFinancialTaxRateDropdown(); // Update dropdown in financial form
+    }
+  });
+
+  // Handle Edit and Delete Tax Rates
+  taxRatesTableBody.addEventListener('click', (e) => {
+    if (e.target.classList.contains('edit-tax-rate')) {
+      const id = e.target.dataset.id;
+      const taxRate = taxRateManager.getAll().find(t => t.id == id);
+      if (taxRate) {
+        // Populate the form with existing data
+        taxRateForm.elements['taxRateId'].value = taxRate.id;
+        taxRateForm.elements['taxRateName'].value = taxRate.name;
+        taxRateForm.elements['taxRateValue'].value = (taxRate.rate * 100).toFixed(2);
+        // Show Update button and hide Add button
+        document.getElementById('add-tax-rate-btn').style.display = 'none';
+        document.getElementById('update-tax-rate-btn').style.display = 'inline-block';
       }
+    } else if (e.target.classList.contains('delete-tax-rate')) {
+      const id = e.target.dataset.id;
+      if (confirm("Are you sure you want to delete this tax rate?")) {
+        taxRateManager.deleteTaxRate(id);
+        renderTaxRates();
+        renderFinancialTaxRateDropdown(); // Update dropdown in financial form
+      }
+    }
+  });
+
+  // Update Tax Rate Form Submission (for editing)
+  taxRateForm.addEventListener('submit', (e) => {
+    if (e.submitter.id === 'update-tax-rate-btn') {
+      e.preventDefault();
+      const formData = new FormData(taxRateForm);
+      const id = formData.get('taxRateId');
+      const name = formData.get('taxRateName');
+      const rate = parseFloat(formData.get('taxRateValue')) / 100;
+
+      if (!name || isNaN(rate) || rate < 0) {
+        alert("Please provide a valid tax rate name and a non-negative rate.");
+        return;
+      }
+
+      taxRateManager.updateTaxRate(id, name, rate);
+      taxRateForm.reset();
+      renderTaxRates();
+      document.getElementById('update-tax-rate-btn').style.display = 'none';
+      document.getElementById('add-tax-rate-btn').style.display = 'inline-block';
+      renderFinancialTaxRateDropdown(); // Update dropdown in financial form
+    }
+  });
+
+  // Render Financial Tax Rate Dropdown
+  function renderFinancialTaxRateDropdown() {
+    const taxRateSelect = financialForm.querySelector('select[name="taxRateId"]');
+    const taxRates = taxRateManager.getAll();
+    taxRateSelect.innerHTML = '<option value="">Select Tax Rate</option>';
+    taxRates.forEach(t => {
+      taxRateSelect.innerHTML += `<option value="${t.id}">${t.name} (${(t.rate * 100).toFixed(2)}%)</option>`;
     });
-
-    const tax = income * taxRate;
-    const netProfit = income - expenses - tax;
-
-    financialIncomeEl.textContent = income.toFixed(2);
-    financialExpensesEl.textContent = expenses.toFixed(2);
-    financialTaxEl.textContent = tax.toFixed(2);
-    financialNetProfitEl.textContent = netProfit.toFixed(2);
   }
 
+  // Render Tax Rates on Load
+  renderTaxRates();
+
+  // Re-render dropdown whenever tax rates change
+  function handleTaxRateChange() {
+    renderFinancialTaxRateDropdown();
+  }
+
+  taxRatesTableBody.addEventListener('click', handleTaxRateChange);
+  taxRateForm.addEventListener('submit', handleTaxRateChange);
+  taxRateForm.addEventListener('reset', handleTaxRateChange);
+
+  // ===== Inventory Management =====
+
+  // Render Inventory Items
   function renderInventoryItems() {
     const items = inventoryManager.getAll();
     inventoryItemsTableBody.innerHTML = '';
     items.forEach(i => {
       const tr = document.createElement('tr');
       const belowReorder = i.quantityAvailable < i.reorderLevel;
-      tr.classList.toggle('low-stock', belowReorder);
-      const restockSoon = i.restockDate && (new Date(i.restockDate) - new Date()) < 3*24*60*60*1000;
+      tr.classList.toggle('low-stock-highlight', belowReorder);
+      const restockSoon = i.restockDate && (new Date(i.restockDate) - new Date()) < 3 * 24 * 60 * 60 * 1000;
       if (restockSoon) tr.classList.add('reorder-alert');
       tr.innerHTML = `
         <td>${i.id}</td>
@@ -875,246 +891,72 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       inventoryItemsTableBody.appendChild(tr);
     });
+
+    // Highlight low-stock categories
+    highlightLowStockCategories();
   }
 
-  function showDemandForecast() {
-    const message = inventoryManager.demandForecast(ordersManager);
-    demandForecastingResult.innerHTML = message;
-  }
+  // Inventory Item Form Submission
+  inventoryItemForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(inventoryItemForm);
+    const id = formData.get('id');
+    const category = formData.get('category');
+    const quantityAvailable = formData.get('quantityAvailable');
+    const reorderLevel = formData.get('reorderLevel');
+    const restockDate = formData.get('restockDate');
+    const storageLocation = formData.get('storageLocation');
+    inventoryManager.addOrUpdateItem(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation);
+    inventoryItemForm.reset();
+    renderInventoryItems();
+    populateInventoryItemSelects(); // Ensure the select is updated
+  });
 
-  function showInventoryReport() {
-    const period = inventoryReportPeriod.value;
-    const reportMsg = inventoryManager.generateInventoryReport(period);
-    inventoryReportDiv.innerHTML = reportMsg;
-  }
-
-  function generateComprehensiveReport(startDate, endDate, taxRate) {
-    const orders = ordersManager.getAll();
-    const purchases = purchasesManager.getAll();
-    const categories = categoriesManager.getAll();
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    const filteredOrders = orders.filter(o => {
-      const oDate = new Date(o.orderDate);
-      return oDate >= start && oDate <= end;
-    });
-    const filteredPurchases = purchases.filter(p => {
-      const pDate = new Date(p.date);
-      return pDate >= start && pDate <= end;
-    });
-
-    let income = 0;
-    const categorySales = {};
-    categories.forEach(c => { categorySales[c.id] = { name: c.name, units: 0 }; });
-
-    filteredOrders.forEach(o => {
-      income += o.totalPrice;
-      if (categorySales[o.categoryId]) {
-        categorySales[o.categoryId].units += o.quantity;
+  // Inventory Items Table Actions (Edit/Delete)
+  inventoryItemsTableBody.addEventListener('click', (e) => {
+    if (e.target.classList.contains('delete-inventory-item')) {
+      const id = e.target.dataset.id;
+      if (confirm("Are you sure you want to delete this inventory item?")) {
+        inventoryManager.deleteItem(id);
+        renderInventoryItems();
+        populateInventoryItemSelects(); // Refresh the inventory items dropdown
       }
-    });
-
-    let expenses = 0;
-    filteredPurchases.forEach(p => {
-      expenses += p.totalCost;
-    });
-
-    const tax = income * taxRate;
-    const netProfit = income - expenses - tax;
-
-    const categoryStockInfo = categories.map(c => {
-      return {name: c.name, stock: c.stock};
-    });
-
-    return {
-      income,
-      expenses,
-      tax,
-      netProfit,
-      categorySales,
-      categoryStockInfo,
-      startDate,
-      endDate,
-      taxRate
-    };
-  }
-
-  function displayComprehensiveReport(report) {
-    let html = `<h4>Comprehensive Report (${report.startDate} to ${report.endDate})</h4>`;
-    html += `<p><strong>Income:</strong> $${report.income.toFixed(2)}</p>`;
-    html += `<p><strong>Expenses:</strong> $${report.expenses.toFixed(2)}</p>`;
-    html += `<p><strong>Tax (${(report.taxRate*100).toFixed(2)}%):</strong> $${report.tax.toFixed(2)} (Applied correctly to income)</p>`;
-    html += `<p><strong>Net Profit:</strong> $${report.netProfit.toFixed(2)}</p>`;
-
-    html += `<h5>Units Sold per Category</h5>`;
-    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Units Sold</th></tr>`;
-    for (let catId in report.categorySales) {
-      const c = report.categorySales[catId];
-      html += `<tr><td>${c.name}</td><td>${c.units}</td></tr>`;
+    } else if (e.target.classList.contains('edit-inventory-item')) {
+      const id = e.target.dataset.id;
+      const item = inventoryManager.getAll().find(i => i.id == id);
+      if (item) {
+        inventoryItemForm.elements['id'].value = item.id;
+        inventoryItemForm.elements['category'].value = item.category;
+        inventoryItemForm.elements['quantityAvailable'].value = item.quantityAvailable;
+        inventoryItemForm.elements['reorderLevel'].value = item.reorderLevel;
+        inventoryItemForm.elements['restockDate'].value = item.restockDate || '';
+        inventoryItemForm.elements['storageLocation'].value = item.storageLocation || '';
+      }
     }
-    html += `</table>`;
+  });
 
-    html += `<h5>Current Stock per Category</h5>`;
-    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Stock</th></tr>`;
-    report.categoryStockInfo.forEach(ci => {
-      html += `<tr><td>${ci.name}</td><td>${ci.stock}</td></tr>`;
-    });
-    html += `</table>`;
+  // ===== Packaging =====
 
-    comprehensiveReportResult.innerHTML = html;
-    exportComprehensiveReportBtn.style.display = 'inline-block';
-    exportComprehensiveReportBtn.dataset.report = JSON.stringify(report);
-  }
-
-  function exportComprehensiveReportCSV(report) {
-    let csv = `Comprehensive Report,${report.startDate} to ${report.endDate}\n`;
-    csv += `Income,${report.income.toFixed(2)}\n`;
-    csv += `Expenses,${report.expenses.toFixed(2)}\n`;
-    csv += `Tax (${(report.taxRate*100).toFixed(2)}%),${report.tax.toFixed(2)}\n`;
-    csv += `Net Profit,${report.netProfit.toFixed(2)}\n\n`;
-
-    csv += `Units Sold per Category\n`;
-    csv += `Category,Units Sold\n`;
-    for (let catId in report.categorySales) {
-      const c = report.categorySales[catId];
-      csv += `${c.name},${c.units}\n`;
-    }
-
-    csv += `\nCurrent Stock per Category\n`;
-    csv += `Category,Stock\n`;
-    report.categoryStockInfo.forEach(ci => {
-      csv += `${ci.name},${ci.stock}\n`;
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "comprehensive_report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // Populate farmer dropdowns for purchase and summary
-  function populateFarmerSelects() {
-    const farmers = farmersManager.getAll();
-    // Purchase Form farmer select
-    purchaseFarmerSelect.innerHTML = '<option value="">Select Farmer</option>';
-    farmers.forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f.id;
-      opt.textContent = f.name;
-      purchaseFarmerSelect.appendChild(opt);
-    });
-
-    // Summary form farmer select
-    const summaryFarmerSelect = document.querySelector('#purchase-summary-form select[name="farmerId"]');
-    summaryFarmerSelect.innerHTML = '<option value="">All Farmers</option>';
-    farmers.forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f.id;
-      opt.textContent = f.name;
-      summaryFarmerSelect.appendChild(opt);
-    });
-  }
-
-  // Populate Cost Calculator Category Select
-  function populateCostCalculatorCategorySelect() {
-    const categorySelect = costCalcForm.querySelector('select[name="categoryId"]');
-    const categories = categoriesManager.getAll();
-    
-    // Clear existing options
-    categorySelect.innerHTML = '<option value="">Select Category</option>';
-    
-    categories.forEach(cat => {
-      const option = document.createElement('option');
-      option.value = cat.id;
-      option.textContent = cat.name;
-      categorySelect.appendChild(option);
-    });
-  }
-
-  // Populate Inventory Item Selects
+  // Populate Inventory Item Select
   function populateInventoryItemSelects() {
-    const inventoryItemSelect = packagingForm.querySelector('select[name="inventoryItemId"]');
     const inventoryItems = inventoryManager.getAll();
-    
-    // Clear existing options
+    const inventoryItemSelect = document.getElementById('inventoryItemSelect');
+    const packagingCategorySelect = document.getElementById('packagingCategorySelect');
     inventoryItemSelect.innerHTML = '<option value="">Select Inventory Item</option>';
-    
-    inventoryItems.forEach(item => {
-      const option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = `${item.category} (ID: ${item.id}) - ${item.quantityAvailable} kg available`;
-      inventoryItemSelect.appendChild(option);
-    });
-  }
-
-  // Populate Order Form Category Select
-  function populateOrderFormCategorySelect() {
+    packagingCategorySelect.innerHTML = '<option value="">Select Category</option>';
     const categories = categoriesManager.getAll();
-    const categorySelect = orderForm.querySelector('select[name="categoryId"]');
-    categorySelect.innerHTML = '<option value="">Select Category</option>';
     categories.forEach(cat => {
       const opt = document.createElement('option');
       opt.value = cat.id;
       opt.textContent = cat.name;
-      categorySelect.appendChild(opt);
+      packagingCategorySelect.appendChild(opt);
+    });
+    inventoryItems.forEach(item => {
+      inventoryItemSelect.innerHTML += `<option value="${item.id}">${item.category} (Available: ${item.quantityAvailable})</option>`;
     });
   }
 
-  categoryPriceForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(categoryPriceForm);
-    const catId = formData.get('categoryId');
-    const newPrice = formData.get('newPrice');
-    if (catId && newPrice) {
-      categoriesManager.updatePrice(catId, newPrice);
-      categoryPriceForm.reset();
-      renderCategories();
-      renderInventory();
-    }
-  });
-
-  reorderForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(reorderForm);
-    const catId = formData.get('categoryId');
-    const newThreshold = formData.get('newThreshold');
-    if (catId && newThreshold) {
-      categoriesManager.updateThreshold(catId, newThreshold);
-      reorderForm.reset();
-      renderInventory();
-    }
-  });
-
-  stockForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(stockForm);
-    const catId = formData.get('categoryId');
-    const stockChange = formData.get('stockChange');
-    if (catId && stockChange) {
-      categoriesManager.updateStock(catId, stockChange);
-      stockForm.reset();
-      renderInventory();
-    }
-  });
-
-  costCalcForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(costCalcForm);
-    const catId = formData.get('categoryId');
-    const quantity = formData.get('quantity');
-    const categories = categoriesManager.getAll();
-    const cat = categories.find(c => c.id == catId);
-    if (cat && quantity) {
-      const totalCost = cat.price * Number(quantity);
-      calculatedCostEl.textContent = totalCost.toFixed(2);
-    }
-  });
-
+  // Packaging Form Submission
   packagingForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(packagingForm);
@@ -1148,169 +990,611 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Deduct raw inventory
     item.quantityAvailable -= totalNeeded;
     inventoryManager.save();
 
+    // Add to packaged category stock
     categoriesManager.updateStock(categoryId, unitsToPackage);
 
-    packagingResult.innerHTML = `<p style='color:green;'>Successfully packaged ${unitsToPackage} units of ${cat.name}, using ${totalNeeded} kg of ${item.category}.</p>`;
+    // Display success message with pricing
+    const totalPrice = cat.price * unitsToPackage;
+    packagingResult.innerHTML = `<p style='color:green;'>Successfully packaged ${unitsToPackage} units of ${cat.name}, using ${totalNeeded} kg of ${item.category}. Total Price: $${totalPrice.toFixed(2)}</p>`;
 
+    // Check for low stock and trigger alerts if necessary
     checkForLowStockAlerts();
+
     renderInventoryItems();
     renderCategories();
     renderInventory();
-    populateInventoryItemSelects(); // Refresh inventory items dropdown
+    populateInventoryItemSelects(); // Refresh the inventory items dropdown
   });
 
-  function checkForLowStockAlerts() {
-    const categories = categoriesManager.getAll();
-    const lowStockCategories = categories.filter(c => c.stock < c.reorderThreshold);
+  // ===== Orders Management =====
 
-    if (lowStockCategories.length > 0) {
-      let msg = "<p style='color:orange; font-weight:bold;'>Alert: The following categories are below their reorder threshold:</p><ul>";
-      lowStockCategories.forEach(c => {
-        msg += `<li>${c.name}: Stock=${c.stock}, Reorder Threshold=${c.reorderThreshold}</li>`;
+  // Render Orders
+  function renderOrders(orders) {
+    const categories = categoriesManager.getAll();
+    ordersTableBody.innerHTML = '';
+    orders.forEach(o => {
+      let itemsDetails = '';
+      o.items.forEach(item => {
+        const cat = categories.find(c => c.id == item.categoryId);
+        const catName = cat ? cat.name : 'Unknown';
+        itemsDetails += `${catName} x${item.quantity} ($${item.unitPrice.toFixed(2)} each)<br>`;
       });
-      msg += "</ul><p>Please consider reordering from suppliers to maintain sufficient inventory.</p>";
-      packagingResult.innerHTML += msg;
-    }
-  }
 
-  function populateOrderFormCategorySelect() {
-    const categories = categoriesManager.getAll();
-    const categorySelect = orderForm.querySelector('select[name="categoryId"]');
-    categorySelect.innerHTML = '<option value="">Select Category</option>';
-    categories.forEach(cat => {
-      const opt = document.createElement('option');
-      opt.value = cat.id;
-      opt.textContent = cat.name;
-      categorySelect.appendChild(opt);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${o.id}</td>
+        <td>${o.customerName}</td>
+        <td>${o.customerContact}</td>
+        <td>${o.shippingInfo}</td>
+        <td>${itemsDetails}</td>
+        <td>$${o.totalCost.toFixed(2)}</td>
+        <td>${o.status}</td>
+        <td>
+          <select class="update-order-status" data-id="${o.id}">
+            <option value="Pending" ${o.status==="Pending"?"selected":""}>Pending</option>
+            <option value="Processed" ${o.status==="Processed"?"selected":""}>Processed</option>
+            <option value="Shipped" ${o.status==="Shipped"?"selected":""}>Shipped</option>
+            <option value="Delivered" ${o.status==="Delivered"?"selected":""}>Delivered</option>
+          </select>
+        </td>
+      `;
+      ordersTableBody.appendChild(tr);
     });
   }
 
+  // Filter and Render Orders
+  function filterAndRenderOrders() {
+    const filters = {
+      customerName: orderSearchCustomer.value,
+      status: orderFilterStatus.value,
+      categoryId: orderFilterCategory.value
+    };
+    const filtered = ordersManager.filterOrders(filters, categoriesManager.getAll());
+    renderOrders(filtered);
+  }
+
+  // Handle Order Status Update
+  ordersTableBody.addEventListener('change', (e) => {
+    if (e.target.classList.contains('update-order-status')) {
+      const id = e.target.dataset.id;
+      const newStatus = e.target.value;
+      ordersManager.updateOrderStatus(id, newStatus);
+      alert(`Order ${id} status updated to ${newStatus}.`);
+      renderOrders(ordersManager.getAll());
+    }
+  });
+
+  // Handle Filter Orders Button
+  filterOrdersBtn.addEventListener('click', filterAndRenderOrders);
+
+  // Handle Order Form Submission
   orderForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(orderForm);
     const customerName = formData.get('customerName');
     const customerContact = formData.get('customerContact');
     const shippingInfo = formData.get('shippingInfo');
-    const orderDate = formData.get('orderDate');
-    const categoryId = formData.get('categoryId');
-    const quantity = Number(formData.get('quantity'));
-    const status = formData.get('status');
 
-    const categories = categoriesManager.getAll();
-    const cat = categories.find(c => c.id == categoryId);
-    if (!cat) {
-      alert("Invalid category selected.");
+    const orderItems = [];
+    const itemCategories = document.querySelectorAll('.orderItemCategory');
+    const itemQuantities = document.querySelectorAll('.orderItemQuantity');
+
+    for (let i = 0; i < itemCategories.length; i++) {
+      const categoryId = parseInt(itemCategories[i].value, 10);
+      const quantity = parseInt(itemQuantities[i].value, 10);
+      if (isNaN(categoryId) || isNaN(quantity)) continue;
+      const category = categoriesManager.getAll().find(c => c.id == categoryId);
+      if (category) {
+        orderItems.push(new OrderItem(categoryId, quantity, category.price));
+      }
+    }
+
+    if (orderItems.length === 0) {
+      alert("Please add at least one valid order item.");
       return;
     }
 
-    if (cat.stock < quantity) {
-      alert(`Not enough stock in category ${cat.name}. Available: ${cat.stock}, Requested: ${quantity}`);
-      return;
-    }
-
-    categoriesManager.updateStock(categoryId, -quantity);
-    const unitPrice = cat.price;
-    ordersManager.addOrder(orderDate, customerName, customerContact, shippingInfo, categoryId, quantity, unitPrice, status);
+    ordersManager.addOrder(customerName, customerContact, shippingInfo, orderItems);
     orderForm.reset();
-    filterAndRenderOrders();
-    renderInventory();
+    renderOrders(ordersManager.getAll());
+    populateOrderFormCategorySelect(); // Refresh category selects
   });
 
-  ordersTableBody.addEventListener('change', (e) => {
-    if (e.target.classList.contains('update-order-status')) {
-      const id = e.target.dataset.id;
-      const newStatus = e.target.value;
-      ordersManager.updateOrderStatus(id, newStatus);
-      filterAndRenderOrders();
-    }
-  });
+  // Populate Order Form Category Select
+  function populateOrderFormCategorySelect() {
+    const categories = categoriesManager.getAll();
+    const orderItemCategories = document.querySelectorAll('.orderItemCategory');
+    orderItemCategories.forEach(select => {
+      select.innerHTML = '<option value="">Select Category</option>';
+      categories.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        select.appendChild(opt);
+      });
+    });
 
-  filterOrdersBtn.addEventListener('click', filterAndRenderOrders);
+    // Also populate filter category select
+    orderFilterCategory.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      orderFilterCategory.appendChild(opt);
+    });
+  }
 
+  // ===== Sales Report =====
+
+  // Generate Sales Report
   generateSalesReportBtn.addEventListener('click', () => {
-    const report = generateSalesReport();
+    const report = ordersManager.generateSalesReport(categoriesManager.getAll());
+
+    let html = `<h4>Sales Report</h4>`;
+    html += `<p>Total Units Sold: ${report.totalUnits}</p>`;
+    html += `<p>Total Revenue: $${report.totalRevenue.toFixed(2)}</p>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Units Sold</th><th>Revenue</th></tr>`;
+    for (let catId in report.perCategory) {
+      const c = report.perCategory[catId];
+      html += `<tr><td>${c.name}</td><td>${c.units}</td><td>$${c.revenue.toFixed(2)}</td></tr>`;
+    }
+    html += `</table>`;
+    salesReportDiv.innerHTML = html;
+    exportSalesReportBtn.style.display = 'inline-block';
     exportSalesReportBtn.dataset.report = JSON.stringify(report);
   });
 
+  // Export Sales Report as CSV
   exportSalesReportBtn.addEventListener('click', () => {
     const report = JSON.parse(exportSalesReportBtn.dataset.report);
-    exportSalesReportCSV(report);
+    let csv = "Category,Units Sold,Revenue\n";
+    for (let catId in report.perCategory) {
+      const c = report.perCategory[catId];
+      csv += `${c.name},${c.units},${c.revenue.toFixed(2)}\n`;
+    }
+    csv += `\nTotal Units Sold,${report.totalUnits},\n`;
+    csv += `Total Revenue,${report.totalRevenue.toFixed(2)},\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "sales_report.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   });
 
+  // ===== Financial Analysis =====
+
+  // Financial Form Submission
   financialForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(financialForm);
     const start = formData.get('start');
     const end = formData.get('end');
-    const taxRate = parseFloat(formData.get('taxRate'));
+    const taxRateId = formData.get('taxRateId'); // Select tax rate from dropdown
+    const taxRate = taxRateManager.getTaxRate(taxRateId) || 0;
+
     calculateFinancialAnalysis(start, end, taxRate);
   });
 
-  inventoryItemForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(inventoryItemForm);
-    const id = formData.get('id');
-    const category = formData.get('category');
-    const quantityAvailable = formData.get('quantityAvailable');
-    const reorderLevel = formData.get('reorderLevel');
-    const restockDate = formData.get('restockDate');
-    const storageLocation = formData.get('storageLocation');
-    inventoryManager.addOrUpdateItem(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation);
-    inventoryItemForm.reset();
-    renderInventoryItems();
-    populateInventoryItemSelects(); // Ensure the select is updated
-  });
+  // Calculate Financial Analysis
+  function calculateFinancialAnalysis(startDate, endDate, taxRate) {
+    const orders = ordersManager.getAll();
+    const purchases = purchasesManager.getAll();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
 
-  inventoryItemsTableBody.addEventListener('click', (e) => {
-    if (e.target.classList.contains('delete-inventory-item')) {
-      const id = e.target.dataset.id;
-      inventoryManager.deleteItem(id);
-      renderInventoryItems();
-      populateInventoryItemSelects(); // Refresh the inventory items dropdown
-    } else if (e.target.classList.contains('edit-inventory-item')) {
-      const id = e.target.dataset.id;
-      const item = inventoryManager.getAll().find(i => i.id == id);
-      if (item) {
-        inventoryItemForm.elements['id'].value = item.id;
-        inventoryItemForm.elements['category'].value = item.category;
-        inventoryItemForm.elements['quantityAvailable'].value = item.quantityAvailable;
-        inventoryItemForm.elements['reorderLevel'].value = item.reorderLevel;
-        inventoryItemForm.elements['restockDate'].value = item.restockDate || '';
-        inventoryItemForm.elements['storageLocation'].value = item.storageLocation || '';
+    let income = 0;
+    orders.forEach(o => {
+      const oDate = new Date(o.orderDate);
+      if (oDate >= start && oDate <= end) {
+        income += o.totalCost;
       }
+    });
+
+    let expenses = 0;
+    purchases.forEach(p => {
+      const pDate = new Date(p.date);
+      if (pDate >= start && pDate <= end) {
+        expenses += p.totalCost;
+      }
+    });
+
+    const tax = income * taxRate;
+    const netProfit = income - expenses - tax;
+
+    financialIncomeEl.textContent = income.toFixed(2);
+    financialExpensesEl.textContent = expenses.toFixed(2);
+    financialTaxEl.textContent = tax.toFixed(2);
+    financialNetProfitEl.textContent = netProfit.toFixed(2);
+
+    // Record Tax Liability
+    recordTaxLiability(startDate, endDate, taxRate, tax);
+
+    // Display confirmation message
+    alert(`Tax Calculation Complete:
+- Income: $${income.toFixed(2)}
+- Expenses: $${expenses.toFixed(2)}
+- Tax (${(taxRate * 100).toFixed(2)}%): $${tax.toFixed(2)}
+- Net Profit: $${netProfit.toFixed(2)}`);
+  }
+
+  // Record Tax Liability
+  function recordTaxLiability(startDate, endDate, taxRate, taxAmount) {
+    let taxLiabilities = JSON.parse(localStorage.getItem('taxLiabilities')) || [];
+    taxLiabilities.push({
+      id: Date.now(),
+      period: `${startDate} to ${endDate}`,
+      taxRate: taxRate,
+      taxAmount: taxAmount
+    });
+    localStorage.setItem('taxLiabilities', JSON.stringify(taxLiabilities));
+  }
+
+  // ===== Comprehensive Report =====
+
+  // Render Comprehensive Report
+  function renderComprehensiveReport(report) {
+    let html = `<h4>Comprehensive Report (${report.startDate} to ${report.endDate})</h4>`;
+    html += `<p><strong>Income:</strong> $${report.income.toFixed(2)}</p>`;
+    html += `<p><strong>Expenses:</strong> $${report.expenses.toFixed(2)}</p>`;
+    html += `<p><strong>Tax (${(report.taxRate * 100).toFixed(2)}%):</strong> $${report.tax.toFixed(2)} (Applied correctly to income)</p>`;
+    html += `<p><strong>Net Profit:</strong> $${report.netProfit.toFixed(2)}</p>`;
+
+    html += `<h5>Units Sold per Category</h5>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Units Sold</th></tr>`;
+    for (let catId in report.categorySales) {
+      const c = report.categorySales[catId];
+      html += `<tr><td>${c.name}</td><td>${c.units}</td></tr>`;
     }
-  });
+    html += `</table>`;
 
-  demandForecastingBtn.addEventListener('click', showDemandForecast);
-  generateInventoryReportBtn.addEventListener('click', showInventoryReport);
+    html += `<h5>Current Stock per Category</h5>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Stock</th></tr>`;
+    for (let category in report.currentStock) {
+      html += `<tr><td>${category}</td><td>${report.currentStock[category]}</td></tr>`;
+    }
+    html += `</table>`;
 
+    comprehensiveReportResult.innerHTML = html;
+    exportComprehensiveReportBtn.style.display = 'inline-block';
+    exportComprehensiveReportBtn.dataset.report = JSON.stringify(report);
+  }
+
+  // Comprehensive Report Form Submission
   comprehensiveReportForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(comprehensiveReportForm);
     const start = formData.get('start');
     const end = formData.get('end');
-    const taxRate = parseFloat(formData.get('taxRate'));
+    const taxRateId = formData.get('taxRateId');
+    const taxRate = taxRateManager.getTaxRate(taxRateId) || 0;
     const report = generateComprehensiveReport(start, end, taxRate);
-    displayComprehensiveReport(report);
+    renderComprehensiveReport(report);
   });
 
+  // Generate Comprehensive Report
+  function generateComprehensiveReport(startDate, endDate, taxRate) {
+    const orders = ordersManager.getAll();
+    const purchases = purchasesManager.getAll();
+    const categories = categoriesManager.getAll();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const filteredOrders = orders.filter(o => {
+      const oDate = new Date(o.orderDate);
+      return oDate >= start && oDate <= end;
+    });
+    const filteredPurchases = purchases.filter(p => {
+      const pDate = new Date(p.date);
+      return pDate >= start && pDate <= end;
+    });
+
+    let income = 0;
+    const categorySales = {};
+    categories.forEach(c => { categorySales[c.id] = { name: c.name, units: 0 }; });
+
+    filteredOrders.forEach(o => {
+      o.items.forEach(item => {
+        income += item.totalPrice;
+        if (categorySales[item.categoryId]) {
+          categorySales[item.categoryId].units += item.quantity;
+        }
+      });
+    });
+
+    let expenses = 0;
+    filteredPurchases.forEach(p => {
+      expenses += p.totalCost;
+    });
+
+    const tax = income * taxRate;
+    const netProfit = income - expenses - tax;
+
+    const categoryStockInfo = categories.map(c => {
+      return { name: c.name, stock: c.stock };
+    });
+
+    return {
+      income,
+      expenses,
+      tax,
+      netProfit,
+      categorySales,
+      currentStock: Object.fromEntries(
+        categoryStockInfo.map(ci => [ci.name, ci.stock])
+      ),
+      startDate,
+      endDate,
+      taxRate
+    };
+  }
+
+  // Export Comprehensive Report as CSV
   exportComprehensiveReportBtn.addEventListener('click', () => {
     const report = JSON.parse(exportComprehensiveReportBtn.dataset.report);
-    exportComprehensiveReportCSV(report);
+    let csv = `Comprehensive Report (${report.startDate} to ${report.endDate})\n\n`;
+    csv += `Income,$${report.income.toFixed(2)}\n`;
+    csv += `Expenses,$${report.expenses.toFixed(2)}\n`;
+    csv += `Tax (${(report.taxRate * 100).toFixed(2)}%),$${report.tax.toFixed(2)}\n`;
+    csv += `Net Profit,$${report.netProfit.toFixed(2)}\n\n`;
+
+    csv += `Units Sold per Category\n`;
+    csv += `Category,Units Sold\n`;
+    for (let catId in report.categorySales) {
+      const c = report.categorySales[catId];
+      csv += `${c.name},${c.units}\n`;
+    }
+    csv += `\n`;
+
+    csv += `Current Stock per Category\n`;
+    csv += `Category,Stock\n`;
+    for (let category in report.currentStock) {
+      csv += `${category},${report.currentStock[category]}\n`;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comprehensive_report_${report.startDate}_to_${report.endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   });
 
-  // INITIAL LOAD
+  // ===== Inventory Report =====
+  // Placeholder for inventory report generation based on the period
+  // Can be implemented similarly to sales and comprehensive reports
+
+  // ===== Demand Forecasting =====
+  function showDemandForecast() {
+    const message = inventoryManager.demandForecast(ordersManager);
+    demandForecastingResult.innerHTML = message;
+  }
+
+  demandForecastingBtn.addEventListener('click', showDemandForecast);
+
+  // ===== Financial Analysis =====
+
+  // Financial Form Submission
+  financialForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(financialForm);
+    const start = formData.get('start');
+    const end = formData.get('end');
+    const taxRateId = formData.get('taxRateId'); // Select tax rate from dropdown
+    const taxRate = taxRateManager.getTaxRate(taxRateId) || 0;
+
+    calculateFinancialAnalysis(start, end, taxRate);
+  });
+
+  // Calculate Financial Analysis
+  function calculateFinancialAnalysis(startDate, endDate, taxRate) {
+    const orders = ordersManager.getAll();
+    const purchases = purchasesManager.getAll();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    let income = 0;
+    orders.forEach(o => {
+      const oDate = new Date(o.orderDate);
+      if (oDate >= start && oDate <= end) {
+        income += o.totalCost;
+      }
+    });
+
+    let expenses = 0;
+    purchases.forEach(p => {
+      const pDate = new Date(p.date);
+      if (pDate >= start && pDate <= end) {
+        expenses += p.totalCost;
+      }
+    });
+
+    const tax = income * taxRate;
+    const netProfit = income - expenses - tax;
+
+    financialIncomeEl.textContent = income.toFixed(2);
+    financialExpensesEl.textContent = expenses.toFixed(2);
+    financialTaxEl.textContent = tax.toFixed(2);
+    financialNetProfitEl.textContent = netProfit.toFixed(2);
+
+    // Record Tax Liability
+    recordTaxLiability(startDate, endDate, taxRate, tax);
+
+    // Display confirmation message
+    alert(`Tax Calculation Complete:
+- Income: $${income.toFixed(2)}
+- Expenses: $${expenses.toFixed(2)}
+- Tax (${(taxRate * 100).toFixed(2)}%): $${tax.toFixed(2)}
+- Net Profit: $${netProfit.toFixed(2)}`);
+  }
+
+  // Record Tax Liability
+  function recordTaxLiability(startDate, endDate, taxRate, taxAmount) {
+    let taxLiabilities = JSON.parse(localStorage.getItem('taxLiabilities')) || [];
+    taxLiabilities.push({
+      id: Date.now(),
+      period: `${startDate} to ${endDate}`,
+      taxRate: taxRate,
+      taxAmount: taxAmount
+    });
+    localStorage.setItem('taxLiabilities', JSON.stringify(taxLiabilities));
+  }
+
+  // ===== Comprehensive Report =====
+
+  // Render Comprehensive Report
+  function renderComprehensiveReport(report) {
+    let html = `<h4>Comprehensive Report (${report.startDate} to ${report.endDate})</h4>`;
+    html += `<p><strong>Income:</strong> $${report.income.toFixed(2)}</p>`;
+    html += `<p><strong>Expenses:</strong> $${report.expenses.toFixed(2)}</p>`;
+    html += `<p><strong>Tax (${(report.taxRate * 100).toFixed(2)}%):</strong> $${report.tax.toFixed(2)} (Applied correctly to income)</p>`;
+    html += `<p><strong>Net Profit:</strong> $${report.netProfit.toFixed(2)}</p>`;
+
+    html += `<h5>Units Sold per Category</h5>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Units Sold</th></tr>`;
+    for (let catId in report.categorySales) {
+      const c = report.categorySales[catId];
+      html += `<tr><td>${c.name}</td><td>${c.units}</td></tr>`;
+    }
+    html += `</table>`;
+
+    html += `<h5>Current Stock per Category</h5>`;
+    html += `<table border="1" cellpadding="5"><tr><th>Category</th><th>Stock</th></tr>`;
+    for (let category in report.currentStock) {
+      html += `<tr><td>${category}</td><td>${report.currentStock[category]}</td></tr>`;
+    }
+    html += `</table>`;
+
+    comprehensiveReportResult.innerHTML = html;
+    exportComprehensiveReportBtn.style.display = 'inline-block';
+    exportComprehensiveReportBtn.dataset.report = JSON.stringify(report);
+  }
+
+  // Comprehensive Report Form Submission
+  comprehensiveReportForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(comprehensiveReportForm);
+    const start = formData.get('start');
+    const end = formData.get('end');
+    const taxRateId = formData.get('taxRateId');
+    const taxRate = taxRateManager.getTaxRate(taxRateId) || 0;
+    const report = generateComprehensiveReport(start, end, taxRate);
+    renderComprehensiveReport(report);
+  });
+
+  // Generate Comprehensive Report
+  function generateComprehensiveReport(startDate, endDate, taxRate) {
+    const orders = ordersManager.getAll();
+    const purchases = purchasesManager.getAll();
+    const categories = categoriesManager.getAll();
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const filteredOrders = orders.filter(o => {
+      const oDate = new Date(o.orderDate);
+      return oDate >= start && oDate <= end;
+    });
+    const filteredPurchases = purchases.filter(p => {
+      const pDate = new Date(p.date);
+      return pDate >= start && pDate <= end;
+    });
+
+    let income = 0;
+    const categorySales = {};
+    categories.forEach(c => { categorySales[c.id] = { name: c.name, units: 0 }; });
+
+    filteredOrders.forEach(o => {
+      o.items.forEach(item => {
+        income += item.totalPrice;
+        if (categorySales[item.categoryId]) {
+          categorySales[item.categoryId].units += item.quantity;
+        }
+      });
+    });
+
+    let expenses = 0;
+    filteredPurchases.forEach(p => {
+      expenses += p.totalCost;
+    });
+
+    const tax = income * taxRate;
+    const netProfit = income - expenses - tax;
+
+    const categoryStockInfo = categories.map(c => {
+      return { name: c.name, stock: c.stock };
+    });
+
+    return {
+      income,
+      expenses,
+      tax,
+      netProfit,
+      categorySales,
+      currentStock: Object.fromEntries(
+        categoryStockInfo.map(ci => [ci.name, ci.stock])
+      ),
+      startDate,
+      endDate,
+      taxRate
+    };
+  }
+
+  // Export Comprehensive Report as CSV
+  exportComprehensiveReportBtn.addEventListener('click', () => {
+    const report = JSON.parse(exportComprehensiveReportBtn.dataset.report);
+    let csv = `Comprehensive Report (${report.startDate} to ${report.endDate})\n\n`;
+    csv += `Income,$${report.income.toFixed(2)}\n`;
+    csv += `Expenses,$${report.expenses.toFixed(2)}\n`;
+    csv += `Tax (${(report.taxRate * 100).toFixed(2)}%),$${report.tax.toFixed(2)}\n`;
+    csv += `Net Profit,$${report.netProfit.toFixed(2)}\n\n`;
+
+    csv += `Units Sold per Category\n`;
+    csv += `Category,Units Sold\n`;
+    for (let catId in report.categorySales) {
+      const c = report.categorySales[catId];
+      csv += `${c.name},${c.units}\n`;
+    }
+    csv += `\n`;
+
+    csv += `Current Stock per Category\n`;
+    csv += `Category,Stock\n`;
+    for (let category in report.currentStock) {
+      csv += `${category},${report.currentStock[category]}\n`;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comprehensive_report_${report.startDate}_to_${report.endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ===== Report Generation =====
+
+  // Populate Inventory Item Selects on Load
+  populateInventoryItemSelects();
+
+  // ===== Initial Load Functions =====
+
   loadFarmers();
+  renderFarmers(farmersManager.getAll());
   renderPurchases();
   renderCategories();
-  renderInventory();
-  filterAndRenderOrders();
   renderInventoryItems();
   populateFarmerSelects();
-  populateOrderFormCategorySelect();
+  populateOrderFormCategorySelect(); // Populate categories in order form
+  renderFinancialTaxRateDropdown(); // Populate tax rate dropdown in financial form
+  renderTaxRates(); // Render existing tax rates
   populateInventoryItemSelects(); // Populate Inventory Items Select on Load
-  populateCostCalculatorCategorySelect(); // Populate Cost Calculator Category Select on Load
 });
