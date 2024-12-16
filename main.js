@@ -1,6 +1,6 @@
 // ===== CLASSES =====
 
-// Updated Farmer class with phone, email, address, region, gpsCoordinates
+// Farmer class with phone, email, address, region, gps
 class Farmer {
   constructor(id, name, phone, email, address, region, gpsCoordinates) {
     this.id = id;
@@ -50,7 +50,6 @@ class FarmersManager {
     this.save();
   }
 
-  // Search by name or region
   search(query) {
     const lower = query.toLowerCase();
     return this.farmers.filter(f =>
@@ -64,29 +63,23 @@ class FarmersManager {
   }
 }
 
-// Validation for farmer inputs
 function validateFarmerInputs(name, phone, email, address, region, gps) {
   if (!name.trim()) return "Name is required.";
-  
   const phoneRegex = /^[0-9]{5,15}$/;
   if (!phoneRegex.test(phone)) return "Phone must be digits only (5-15 chars).";
-
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return "Invalid email format.";
-
   if (!address.trim()) return "Address is required.";
   if (!region.trim()) return "Region is required.";
   if (!gps.trim()) return "GPS Coordinates are required.";
-
   return null;
 }
 
-// Purchase, Category, Orders, Inventory classes remain the same from previous final integration
+// Purchase class without inventory item link
 class Purchase {
-  constructor(id, farmerId, inventoryItemId, date, quantity, pricePerKg) {
+  constructor(id, farmerId, date, quantity, pricePerKg) {
     this.id = id;
     this.farmerId = farmerId;
-    this.inventoryItemId = inventoryItemId;
     this.date = date;
     this.quantity = quantity;
     this.pricePerKg = pricePerKg;
@@ -98,22 +91,27 @@ class PurchasesManager {
   constructor() {
     this.load();
   }
+
   load() {
     const data = localStorage.getItem('purchases');
     this.purchases = data ? JSON.parse(data) : [];
   }
+
   save() {
     localStorage.setItem('purchases', JSON.stringify(this.purchases));
   }
+
   addPurchase(farmerId, date, quantity, pricePerKg) {
-    const purchase = new Purchase(Date.now(), Number(farmerId), null, date, Number(quantity), Number(pricePerKg));
+    const purchase = new Purchase(Date.now(), Number(farmerId), date, Number(quantity), Number(pricePerKg));
     this.purchases.push(purchase);
     this.save();
     return purchase;
   }
+
   getAll() {
     return this.purchases;
   }
+
   sortByField(field, farmers) {
     if (field === 'date') {
       this.purchases.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -121,11 +119,47 @@ class PurchasesManager {
       this.purchases.sort((a, b) => a.totalCost - b.totalCost);
     } else if (field === 'farmer') {
       this.purchases.sort((a, b) => {
-        const fA = farmers.find(f => f.id == a.farmerId)?.name || '';
-        const fB = farmers.find(f => f.id == b.farmerId)?.name || '';
+        const fA = farmers.find(f => f.id === a.farmerId)?.name || '';
+        const fB = farmers.find(f => f.id === b.farmerId)?.name || '';
         return fA.localeCompare(fB);
       });
     }
+  }
+
+  generateSummary(filter) {
+    const { farmerId, start, end } = filter;
+    const startDate = start ? new Date(start) : null;
+    const endDate = end ? new Date(end) : null;
+
+    let filtered = this.purchases;
+
+    if (farmerId) {
+      filtered = filtered.filter(p => p.farmerId === farmerId);
+    }
+
+    if (startDate && endDate) {
+      filtered = filtered.filter(p => {
+        const pDate = new Date(p.date);
+        return pDate >= startDate && pDate <= endDate;
+      });
+    } else if (startDate && !endDate) {
+      filtered = filtered.filter(p => new Date(p.date) >= startDate);
+    } else if (!startDate && endDate) {
+      filtered = filtered.filter(p => new Date(p.date) <= endDate);
+    }
+
+    let totalQuantity = 0;
+    let totalCost = 0;
+    filtered.forEach(p => {
+      totalQuantity += p.quantity;
+      totalCost += p.totalCost;
+    });
+
+    return {
+      count: filtered.length,
+      totalQuantity,
+      totalCost
+    };
   }
 }
 
@@ -375,7 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const ordersManager = new OrdersManager();
   const inventoryManager = new InventoryManager();
 
-  // ELEMENTS
   const farmerForm = document.getElementById('farmer-form');
   const farmersTableBody = document.querySelector('#farmers-table tbody');
   const farmerSearch = document.getElementById('farmer-search');
@@ -383,7 +416,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const purchaseForm = document.getElementById('purchase-form');
   const purchaseFarmerSelect = purchaseForm.querySelector('select[name="farmerId"]');
-  const purchaseInventoryItemSelect = purchaseForm.querySelector('select[name="inventoryItemId"]');
   const purchasesTableBody = document.querySelector('#purchases-table tbody');
   const sortButtons = document.querySelectorAll('.sort-purchase');
 
@@ -434,7 +466,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const comprehensiveReportResult = document.getElementById('comprehensive-report-result');
   const exportComprehensiveReportBtn = document.getElementById('export-comprehensive-report');
 
-  // RENDER FUNCTIONS
+  const purchaseSummaryForm = document.getElementById('purchase-summary-form');
+  const purchaseSummaryResult = document.getElementById('purchase-summary-result');
+
+  // RENDER FUNCTIONS & EVENT HANDLERS
+
   function renderFarmers(farmers) {
     farmersTableBody.innerHTML = '';
     farmers.forEach(f => {
@@ -457,54 +493,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadFarmers(filter = '') {
-    let farmers = filter ? farmersManager.search(filter) : farmersManager.getAll();
+    const farmers = filter ? farmersManager.search(filter) : farmersManager.getAll();
     renderFarmers(farmers);
-  }
-
-  function populateFarmerSelect() {
-    const farmers = farmersManager.getAll();
-    purchaseFarmerSelect.innerHTML = '<option value="">Select Farmer</option>';
-    farmers.forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f.id;
-      opt.textContent = f.name;
-      purchaseFarmerSelect.appendChild(opt);
-    });
-  }
-
-  function populateInventoryItemSelects() {
-    const items = inventoryManager.getAll();
-    purchaseInventoryItemSelect.innerHTML = '<option value="">Select Inventory Item</option>';
-    items.forEach(i => {
-      const opt1 = document.createElement('option');
-      opt1.value = i.id;
-      opt1.textContent = i.category;
-      purchaseInventoryItemSelect.appendChild(opt1);
-    });
-    const packagingInventoryItemSelect = packagingForm.querySelector('select[name="inventoryItemId"]');
-    packagingInventoryItemSelect.innerHTML = '<option value="">Select Raw Inventory Item</option>';
-    items.forEach(i => {
-      const opt = document.createElement('option');
-      opt.value = i.id;
-      opt.textContent = `${i.category} (Raw Inventory)`;
-      packagingInventoryItemSelect.appendChild(opt);
-    });
   }
 
   function renderPurchases() {
     const farmers = farmersManager.getAll();
     const purchases = purchasesManager.getAll();
-    const items = inventoryManager.getAll();
     purchasesTableBody.innerHTML = '';
     purchases.forEach(p => {
-      const farmerName = (farmers.find(f => f.id == p.farmerId) || {}).name || 'Unknown';
-      const item = items.find(i => i.id == p.inventoryItemId);
-      const itemName = item ? item.category : 'Unknown';
+      const farmerObj = farmers.find(f => f.id === p.farmerId);
+      const farmerName = farmerObj ? farmerObj.name : 'Unknown';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${p.id}</td>
         <td>${farmerName}</td>
-        <td>${itemName}</td>
         <td>${p.date}</td>
         <td>${p.quantity.toFixed(2)}</td>
         <td>${p.pricePerKg.toFixed(2)}</td>
@@ -514,12 +517,169 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Summaries for purchases
+  purchaseSummaryForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(purchaseSummaryForm);
+    const farmerId = formData.get('farmerId');
+    const start = formData.get('start');
+    const end = formData.get('end');
+
+    const filter = {};
+    if (farmerId) filter.farmerId = Number(farmerId);
+    if (start) filter.start = start;
+    if (end) filter.end = end;
+
+    const summary = purchasesManager.generateSummary(filter);
+    let html = `<p>Total Purchases: ${summary.count}</p>`;
+    html += `<p>Total Quantity: ${summary.totalQuantity.toFixed(2)} kg</p>`;
+    html += `<p>Total Cost: $${summary.totalCost.toFixed(2)}</p>`;
+
+    purchaseSummaryResult.innerHTML = html;
+  });
+
+  // Populate farmer selects for purchases and summaries
+  function populateFarmerSelects() {
+    const farmers = farmersManager.getAll();
+    // Purchase Form farmer select
+    purchaseFarmerSelect.innerHTML = '<option value="">Select Farmer</option>';
+    farmers.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.name;
+      purchaseFarmerSelect.appendChild(opt);
+    });
+
+    // Summary form farmer select
+    const summaryFarmerSelect = document.querySelector('#purchase-summary-form select[name="farmerId"]');
+    summaryFarmerSelect.innerHTML = '<option value="">All Farmers</option>';
+    farmers.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.name;
+      summaryFarmerSelect.appendChild(opt);
+    });
+  }
+
+  // Farmer form submit
+  farmerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(farmerForm);
+    const id = formData.get('id');
+    const name = formData.get('name');
+    const phone = formData.get('phone');
+    const email = formData.get('email');
+    const address = formData.get('address');
+    const region = formData.get('region');
+    const gps = formData.get('gpsCoordinates');
+
+    const error = validateFarmerInputs(name, phone, email, address, region, gps);
+    if (error) {
+      alert(error);
+      return;
+    }
+
+    if (id) {
+      farmersManager.updateFarmer(id, name, phone, email, address, region, gps);
+    } else {
+      farmersManager.addFarmer(name, phone, email, address, region, gps);
+    }
+
+    farmerForm.reset();
+    loadFarmers(farmerSearch.value);
+    populateFarmerSelects(); // Update farmer selects after adding/updating
+  });
+
+  farmersTableBody.addEventListener('click', (e) => {
+    if (e.target.classList.contains('delete-farmer')) {
+      const id = e.target.dataset.id;
+      farmersManager.deleteFarmer(id);
+      loadFarmers(farmerSearch.value);
+      populateFarmerSelects();
+    } else if (e.target.classList.contains('edit-farmer')) {
+      const id = e.target.dataset.id;
+      const farmer = farmersManager.getAll().find(f => f.id == id);
+      if (farmer) {
+        farmerForm.elements['id'].value = farmer.id;
+        farmerForm.elements['name'].value = farmer.name;
+        farmerForm.elements['phone'].value = farmer.phone;
+        farmerForm.elements['email'].value = farmer.email;
+        farmerForm.elements['address'].value = farmer.address;
+        farmerForm.elements['region'].value = farmer.region;
+        farmerForm.elements['gpsCoordinates'].value = farmer.gpsCoordinates;
+      }
+    }
+  });
+
+  farmerSearch.addEventListener('input', () => {
+    loadFarmers(farmerSearch.value);
+  });
+
+  exportFarmersBtn.addEventListener('click', () => {
+    const farmers = farmersManager.getAll();
+    let csv = "FarmerID,Name,Phone,Email,Address,Region,GPS\n";
+    farmers.forEach(f => {
+      csv += `${f.id},${f.name},${f.phone},${f.email},${f.address},${f.region},${f.gpsCoordinates}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "farmers.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Purchase form submit
+  purchaseForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(purchaseForm);
+    const farmerId = formData.get('farmerId');
+    const date = formData.get('date');
+    const quantity = formData.get('quantity');
+    const pricePerKg = formData.get('pricePerKg');
+
+    if (!farmerId) {
+      alert("Please select a farmer before adding a purchase.");
+      return;
+    }
+
+    // Ensure at least one farmer is present
+    if (farmersManager.getAll().length === 0) {
+      alert("No farmers available. Please add a farmer first.");
+      return;
+    }
+
+    purchasesManager.addPurchase(farmerId, date, quantity, pricePerKg);
+    purchaseForm.reset();
+    renderPurchases();
+  });
+
+  // Purchase Sorting
+  sortButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sortField = btn.dataset.sort;
+      purchasesManager.sortByField(sortField, farmersManager.getAll());
+      renderPurchases();
+    });
+  });
+
+  // Expense form submit
+  expenseForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(expenseForm);
+    const start = formData.get('start');
+    const end = formData.get('end');
+    calculateExpenses(start, end);
+  });
+
   function calculateExpenses(start, end) {
     const calculator = new ExpenseCalculator(purchasesManager.getAll());
     const total = calculator.calculate(start, end);
     totalExpensesEl.textContent = total.toFixed(2);
   }
 
+  // Render Categories
   function renderCategories() {
     const categories = categoriesManager.getAll();
     categoriesTableBody.innerHTML = '';
@@ -543,6 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Render Inventory
   function renderInventory() {
     const categories = categoriesManager.getAll();
     inventoryTableBody.innerHTML = '';
@@ -585,6 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Render Orders
   function renderOrders(orders) {
     const categories = categoriesManager.getAll();
     ordersTableBody.innerHTML = '';
@@ -835,109 +997,73 @@ document.addEventListener('DOMContentLoaded', () => {
     URL.revokeObjectURL(url);
   }
 
-  // EVENT LISTENERS
-  farmerForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(farmerForm);
-    const id = formData.get('id');
-    const name = formData.get('name');
-    const phone = formData.get('phone');
-    const email = formData.get('email');
-    const address = formData.get('address');
-    const region = formData.get('region');
-    const gps = formData.get('gpsCoordinates');
-
-    const error = validateFarmerInputs(name, phone, email, address, region, gps);
-    if (error) {
-      alert(error);
-      return;
-    }
-
-    if (id) {
-      farmersManager.updateFarmer(id, name, phone, email, address, region, gps);
-    } else {
-      farmersManager.addFarmer(name, phone, email, address, region, gps);
-    }
-
-    farmerForm.reset();
-    loadFarmers(farmerSearch.value);
-  });
-
-  farmersTableBody.addEventListener('click', (e) => {
-    if (e.target.classList.contains('delete-farmer')) {
-      const id = e.target.dataset.id;
-      farmersManager.deleteFarmer(id);
-      loadFarmers(farmerSearch.value);
-    } else if (e.target.classList.contains('edit-farmer')) {
-      const id = e.target.dataset.id;
-      const farmer = farmersManager.getAll().find(f => f.id == id);
-      if (farmer) {
-        farmerForm.elements['id'].value = farmer.id;
-        farmerForm.elements['name'].value = farmer.name;
-        farmerForm.elements['phone'].value = farmer.phone;
-        farmerForm.elements['email'].value = farmer.email;
-        farmerForm.elements['address'].value = farmer.address;
-        farmerForm.elements['region'].value = farmer.region;
-        farmerForm.elements['gpsCoordinates'].value = farmer.gpsCoordinates;
-      }
-    }
-  });
-
-  farmerSearch.addEventListener('input', () => {
-    loadFarmers(farmerSearch.value);
-  });
-
-  exportFarmersBtn.addEventListener('click', () => {
+  // Populate farmer dropdowns for purchase and summary
+  function populateFarmerSelects() {
     const farmers = farmersManager.getAll();
-    let csv = "FarmerID,Name,Phone,Email,Address,Region,GPS\n";
+    // Purchase Form farmer select
+    purchaseFarmerSelect.innerHTML = '<option value="">Select Farmer</option>';
     farmers.forEach(f => {
-      csv += `${f.id},${f.name},${f.phone},${f.email},${f.address},${f.region},${f.gpsCoordinates}\n`;
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.name;
+      purchaseFarmerSelect.appendChild(opt);
     });
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "farmers.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  });
 
-  purchaseForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(purchaseForm);
-    const farmerId = formData.get('farmerId');
-    const inventoryItemId = formData.get('inventoryItemId');
-    const date = formData.get('date');
-    const quantity = formData.get('quantity');
-    const pricePerKg = formData.get('pricePerKg');
-
-    const p = purchasesManager.addPurchase(farmerId, date, quantity, pricePerKg);
-    p.inventoryItemId = Number(inventoryItemId);
-    purchasesManager.save();
-
-    // Increase stock in raw inventory
-    inventoryManager.updateStock(inventoryItemId, quantity);
-
-    purchaseForm.reset();
-    renderPurchases();
-    renderInventoryItems();
-  });
-
-  sortButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sortField = btn.dataset.sort;
-      purchasesManager.sortByField(sortField, farmersManager.getAll());
-      renderPurchases();
+    // Summary form farmer select
+    const summaryFarmerSelect = document.querySelector('#purchase-summary-form select[name="farmerId"]');
+    summaryFarmerSelect.innerHTML = '<option value="">All Farmers</option>';
+    farmers.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.name;
+      summaryFarmerSelect.appendChild(opt);
     });
-  });
+  }
 
-  expenseForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(expenseForm);
-    const start = formData.get('start');
-    const end = formData.get('end');
-    calculateExpenses(start, end);
-  });
+  // Populate Cost Calculator Category Select
+  function populateCostCalculatorCategorySelect() {
+    const categorySelect = costCalcForm.querySelector('select[name="categoryId"]');
+    const categories = categoriesManager.getAll();
+    
+    // Clear existing options
+    categorySelect.innerHTML = '<option value="">Select Category</option>';
+    
+    categories.forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.name;
+      categorySelect.appendChild(option);
+    });
+  }
+
+  // Populate Inventory Item Selects
+  function populateInventoryItemSelects() {
+    const inventoryItemSelect = packagingForm.querySelector('select[name="inventoryItemId"]');
+    const inventoryItems = inventoryManager.getAll();
+    
+    // Clear existing options
+    inventoryItemSelect.innerHTML = '<option value="">Select Inventory Item</option>';
+    
+    inventoryItems.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.category} (ID: ${item.id}) - ${item.quantityAvailable} kg available`;
+      inventoryItemSelect.appendChild(option);
+    });
+  }
+
+  // Populate Order Form Category Select
+  function populateOrderFormCategorySelect() {
+    const categories = categoriesManager.getAll();
+    const categorySelect = orderForm.querySelector('select[name="categoryId"]');
+    categorySelect.innerHTML = '<option value="">Select Category</option>';
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      categorySelect.appendChild(opt);
+    });
+  }
 
   categoryPriceForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1033,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderInventoryItems();
     renderCategories();
     renderInventory();
+    populateInventoryItemSelects(); // Refresh inventory items dropdown
   });
 
   function checkForLowStockAlerts() {
@@ -1134,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inventoryManager.addOrUpdateItem(id, category, quantityAvailable, reorderLevel, restockDate, storageLocation);
     inventoryItemForm.reset();
     renderInventoryItems();
-    populateInventoryItemSelects();
+    populateInventoryItemSelects(); // Ensure the select is updated
   });
 
   inventoryItemsTableBody.addEventListener('click', (e) => {
@@ -1142,7 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const id = e.target.dataset.id;
       inventoryManager.deleteItem(id);
       renderInventoryItems();
-      populateInventoryItemSelects();
+      populateInventoryItemSelects(); // Refresh the inventory items dropdown
     } else if (e.target.classList.contains('edit-inventory-item')) {
       const id = e.target.dataset.id;
       const item = inventoryManager.getAll().find(i => i.id == id);
@@ -1182,6 +1309,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderInventory();
   filterAndRenderOrders();
   renderInventoryItems();
-  populateInventoryItemSelects();
+  populateFarmerSelects();
   populateOrderFormCategorySelect();
+  populateInventoryItemSelects(); // Populate Inventory Items Select on Load
+  populateCostCalculatorCategorySelect(); // Populate Cost Calculator Category Select on Load
 });
